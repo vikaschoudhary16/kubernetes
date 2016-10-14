@@ -132,8 +132,10 @@ func (m *manager) Start() {
 	go wait.Forever(func() {
 		select {
 		case syncRequest := <-m.podStatusChannel:
+			glog.V(4).Infof("calling syncPod for pod %q ; status: %+v", syncRequest.podUID, syncRequest.status)
 			m.syncPod(syncRequest.podUID, syncRequest.status)
 		case <-syncTicker:
+			glog.V(4).Infof("syncTicker expired, calling syncBatch")
 			m.syncBatch()
 		}
 	}, 0)
@@ -148,6 +150,7 @@ func (m *manager) GetPodStatus(uid types.UID) (api.PodStatus, bool) {
 
 func (m *manager) SetPodStatus(pod *api.Pod, status api.PodStatus) {
 	m.podStatusesLock.Lock()
+	glog.V(3).Infof("vikasc: entered SetPodStatus()")
 	defer m.podStatusesLock.Unlock()
 	// Make sure we're caching a deep copy.
 	status, err := copyStatus(&status)
@@ -158,6 +161,7 @@ func (m *manager) SetPodStatus(pod *api.Pod, status api.PodStatus) {
 	// because if the pod is in the non-running state, the pod worker still
 	// needs to be able to trigger an update and/or deletion.
 	m.updateStatusInternal(pod, status, pod.DeletionTimestamp != nil)
+	glog.V(3).Infof("vikasc: exit SetPodStatus()")
 }
 
 func (m *manager) SetContainerReadiness(podUID types.UID, containerID kubecontainer.ContainerID, ready bool) {
@@ -265,6 +269,7 @@ func (m *manager) TerminatePod(pod *api.Pod) {
 // This method IS NOT THREAD SAFE and must be called from a locked function.
 func (m *manager) updateStatusInternal(pod *api.Pod, status api.PodStatus, forceUpdate bool) bool {
 	var oldStatus api.PodStatus
+	glog.V(3).Infof("vikasc: updateStatusInternal(): write to podStatusChannel")
 	cachedStatus, isCached := m.podStatuses[pod.UID]
 	if isCached {
 		oldStatus = cachedStatus.status
@@ -320,9 +325,11 @@ func (m *manager) updateStatusInternal(pod *api.Pod, status api.PodStatus, force
 		podNamespace: pod.Namespace,
 	}
 	m.podStatuses[pod.UID] = newStatus
+	glog.V(3).Infof("vikasc: updateStatusInternal():")
 
 	select {
 	case m.podStatusChannel <- podStatusSyncRequest{pod.UID, newStatus}:
+		glog.V(3).Infof("vikasc: updateStatusInternal() Exit: write to podStatusChannel")
 		return true
 	default:
 		// Let the periodic syncBatch handle the update if the channel is full.
@@ -398,6 +405,7 @@ func (m *manager) syncBatch() {
 
 // syncPod syncs the given status with the API server. The caller must not hold the lock.
 func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
+	glog.Info("vikasc: entered status_manager's syncPod()")
 	if !m.needsUpdate(uid, status) {
 		glog.V(1).Infof("Status for pod %q is up-to-date; skipping", uid)
 		return
@@ -426,9 +434,11 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 			m.apiStatusVersions[pod.UID] = status.version
 			if kubepod.IsMirrorPod(pod) {
 				// We don't handle graceful deletion of mirror pods.
+				glog.Info("vikasc: exit status_manager's syncPod()")
 				return
 			}
 			if pod.DeletionTimestamp == nil {
+				glog.Info("vikasc: exit status_manager's syncPod()")
 				return
 			}
 			if !notRunning(pod.Status.ContainerStatuses) {

@@ -564,7 +564,7 @@ function kube::build::run_build_command_ex() {
   done
 
   docker_run_opts+=(
-    --env "KUBE_FASTBUILD=${KUBE_FASTBUILD:-false}"
+    --env "KUBE_FASTBUILD=${KUBE_FASTBUILD:-true}"
     --env "KUBE_BUILDER_OS=${OSTYPE:-notdetected}"
     --env "KUBE_BUILD_PPC64LE=${KUBE_BUILD_PPC64LE}"  # TODO(IBM): remove
   )

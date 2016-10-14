@@ -1261,6 +1261,7 @@ func (kl *Kubelet) GetClusterDNS(pod *api.Pod) ([]string, []string, error) {
 // on the next syncPod call.
 func (kl *Kubelet) syncPod(o syncPodOptions) error {
 	// pull out the required options
+	glog.Info("vikasc: entered syncPod")
 	pod := o.pod
 	mirrorPod := o.mirrorPod
 	podStatus := o.podStatus
@@ -1317,6 +1318,7 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
 	}
 
 	// Update status in the status manager
+	glog.V(3).Infof("vikasc: inside syncPod(), calling SetPodStatus()")
 	kl.statusManager.SetPodStatus(pod, apiPodStatus)
 
 	// Kill pod if it should not be running

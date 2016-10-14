@@ -234,6 +234,7 @@ type manager struct {
 
 // Start the container manager.
 func (self *manager) Start() error {
+	glog.Infof("vikasc: Entering cadvisor manager Start()")
 	err := docker.Register(self, self.fsInfo, self.ignoreMetrics)
 	if err != nil {
 		glog.Warningf("Docker container factory registration failed: %v.", err)
@@ -301,6 +302,7 @@ func (self *manager) Start() error {
 	quitGlobalHousekeeping := make(chan error)
 	self.quitChannels = append(self.quitChannels, quitGlobalHousekeeping)
 	go self.globalHousekeeping(quitGlobalHousekeeping)
+	glog.Infof("vikasc: Exit cadvisor manager Start()")
 
 	return nil
 }
@@ -1021,6 +1023,7 @@ func (m *manager) detectSubcontainers(containerName string) error {
 
 // Watches for new containers started in the system. Runs forever unless there is a setup error.
 func (self *manager) watchForNewContainers(quit chan error) error {
+	glog.Infof("vikasc: Entering watchForNewContainers")
 	for _, watcher := range self.containerWatchers {
 		err := watcher.Start(self.eventsChannel)
 		if err != nil {
@@ -1046,6 +1049,7 @@ func (self *manager) watchForNewContainers(quit chan error) error {
 					case watcher.Rkt:
 						err = self.overrideContainer(event.Name, event.WatchSource)
 					default:
+						glog.Infof("vikasc: Entering watchForNewContainers: calling createContainer with event source as %s", event.WatchSource)
 						err = self.createContainer(event.Name, event.WatchSource)
 					}
 				case event.EventType == watcher.ContainerDelete:

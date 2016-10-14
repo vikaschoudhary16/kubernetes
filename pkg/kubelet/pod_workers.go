@@ -150,6 +150,7 @@ func newPodWorkers(syncPodFn syncPodFnType, recorder record.EventRecorder, workQ
 }
 
 func (p *podWorkers) managePodLoop(podUpdates <-chan UpdatePodOptions) {
+	glog.Info("vikasc: entered podworker.managePodLoop")
 	var lastSyncTime time.Time
 	for update := range podUpdates {
 		err := func() error {
@@ -163,6 +164,7 @@ func (p *podWorkers) managePodLoop(podUpdates <-chan UpdatePodOptions) {
 			if err != nil {
 				return err
 			}
+			glog.Info("vikasc: podworker.managePodLoop: Calling syncPod")
 			err = p.syncPodFn(syncPodOptions{
 				mirrorPod:      update.MirrorPod,
 				pod:            update.Pod,
@@ -186,6 +188,7 @@ func (p *podWorkers) managePodLoop(podUpdates <-chan UpdatePodOptions) {
 		}
 		p.wrapUp(update.Pod.UID, err)
 	}
+	glog.Info("vikasc: exiting podworker.managePodLoop")
 }
 
 // Apply the new setting to the specified pod.
@@ -196,7 +199,7 @@ func (p *podWorkers) UpdatePod(options *UpdatePodOptions) {
 	uid := pod.UID
 	var podUpdates chan UpdatePodOptions
 	var exists bool
-
+	glog.Info("vikasc: entered podworker.UpdatePod")
 	p.podLock.Lock()
 	defer p.podLock.Unlock()
 	if podUpdates, exists = p.podUpdates[uid]; !exists {
@@ -226,6 +229,7 @@ func (p *podWorkers) UpdatePod(options *UpdatePodOptions) {
 			p.lastUndeliveredWorkUpdate[pod.UID] = *options
 		}
 	}
+	glog.Info("vikasc: exiting podworker.UpdatePod")
 }
 
 func (p *podWorkers) removeWorker(uid types.UID) {

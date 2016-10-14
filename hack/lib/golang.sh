@@ -43,11 +43,11 @@ if [[ "${KUBE_FASTBUILD:-}" == "true" ]]; then
   readonly KUBE_SERVER_PLATFORMS=(linux/amd64)
   if [[ "${KUBE_BUILDER_OS:-}" == "darwin"* ]]; then
     readonly KUBE_TEST_PLATFORMS=(
-      darwin/amd64
+      #darwin/amd64
       linux/amd64
     )
     readonly KUBE_CLIENT_PLATFORMS=(
-      darwin/amd64
+    # darwin/amd64
       linux/amd64
     )
   else
@@ -59,8 +59,8 @@ else
   # The server platform we are building on.
   KUBE_SERVER_PLATFORMS=(
     linux/amd64
-    linux/arm
-    linux/arm64
+    #linux/arm
+    #linux/arm64
   )
   if [[ "${KUBE_BUILD_PPC64LE:-}" =~ ^[yY]$ ]]; then
     KUBE_SERVER_PLATFORMS+=(linux/ppc64le)
@@ -71,13 +71,13 @@ else
   # in 'build/build-image/cross/Dockerfile'. However, it's only a bit faster since go 1.5, not mandatory
   KUBE_CLIENT_PLATFORMS=(
     linux/amd64
-    linux/386
-    linux/arm
-    linux/arm64
-    darwin/amd64
-    darwin/386
-    windows/amd64
-    windows/386
+    #linux/386
+    #linux/arm
+    #linux/arm64
+    #darwin/amd64
+    #darwin/386
+    #windows/amd64
+    #windows/386
   )
   if [[ "${KUBE_BUILD_PPC64LE:-}" =~ ^[yY]$ ]]; then
     KUBE_CLIENT_PLATFORMS+=(linux/ppc64le)
@@ -87,8 +87,8 @@ else
   # Which platforms we should compile test targets for. Not all client platforms need these tests
   readonly KUBE_TEST_PLATFORMS=(
     linux/amd64
-    darwin/amd64
-    windows/amd64
+    #darwin/amd64
+    #windows/amd64
   )
 fi
 
