@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/golang/glog"
 	libcontainercgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	cgroupfs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
 	cgroupsystemd "github.com/opencontainers/runc/libcontainer/cgroups/systemd"
@@ -262,6 +263,7 @@ type subsystem interface {
 var supportedSubsystems = []subsystem{
 	&cgroupfs.MemoryGroup{},
 	&cgroupfs.CpuGroup{},
+	&cgroupfs.CpusetGroup{},
 }
 
 // setSupportedSubsytems sets cgroup resource limits only on the supported
@@ -274,10 +276,12 @@ var supportedSubsystems = []subsystem{
 // but this is not possible with libcontainers Set() method
 // See https://github.com/opencontainers/runc/issues/932
 func setSupportedSubsytems(cgroupConfig *libcontainerconfigs.Cgroup) error {
+	glog.Info("vikasc:setSupportedSubsytems() entered")
 	for _, sys := range supportedSubsystems {
 		if _, ok := cgroupConfig.Paths[sys.Name()]; !ok {
 			return fmt.Errorf("Failed to find subsytem mount for subsytem: %v", sys.Name())
 		}
+		glog.Info("vikasc:setSupportedSubsytems() sys.Name ", sys.Name())
 		if err := sys.Set(cgroupConfig.Paths[sys.Name()], cgroupConfig); err != nil {
 			return fmt.Errorf("Failed to set config for supported subsystems : %v", err)
 		}
@@ -302,12 +306,19 @@ func (m *cgroupManagerImpl) toResources(resourceConfig *ResourceConfig) *libcont
 	if resourceConfig.CpuPeriod != nil {
 		resources.CpuPeriod = *resourceConfig.CpuPeriod
 	}
+	if resourceConfig.CpusetCpus != nil {
+		resources.CpusetCpus = *resourceConfig.CpusetCpus
+	}
+	if resourceConfig.CpusetMems != nil {
+		resources.CpusetMems = *resourceConfig.CpusetMems
+	}
 	return resources
 }
 
 // Update updates the cgroup with the specified Cgroup Configuration
 func (m *cgroupManagerImpl) Update(cgroupConfig *CgroupConfig) error {
 	// Extract the cgroup resource parameters
+	glog.Info("vikasc:Udate() entered")
 	resourceConfig := cgroupConfig.ResourceParameters
 	resources := m.toResources(resourceConfig)
 
@@ -354,6 +365,7 @@ func (m *cgroupManagerImpl) Create(cgroupConfig *CgroupConfig) error {
 	if m.adapter.cgroupManagerType == libcontainerSystemd {
 		driverName = m.adapter.adaptName(cgroupConfig.Name, false)
 	}
+	glog.Info("vikasc:Create, resources %v", cgroupConfig.ResourceParameters)
 
 	resources := m.toResources(cgroupConfig.ResourceParameters)
 	// Initialize libcontainer's cgroup config with driver specific naming.
@@ -368,6 +380,9 @@ func (m *cgroupManagerImpl) Create(cgroupConfig *CgroupConfig) error {
 	if err != nil {
 		return err
 	}
+	glog.Info("vikasc:Create, name ", libcontainerCgroupConfig.Name)
+	glog.Info("vikasc:Create, parent ", libcontainerCgroupConfig.Parent)
+	glog.Info("vikasc:Create, Resources ", libcontainerCgroupConfig.Resources)
 
 	// Apply(-1) is a hack to create the cgroup directories for each resource
 	// subsystem. The function [cgroups.Manager.apply()] applies cgroup
@@ -376,8 +391,10 @@ func (m *cgroupManagerImpl) Create(cgroupConfig *CgroupConfig) error {
 	// in the tasks file. We use the function to create all the required
 	// cgroup files but not attach any "real" pid to the cgroup.
 	if err := manager.Apply(-1); err != nil {
+		glog.Info("vikasc:Create, Exit with error ", libcontainerCgroupConfig)
 		return err
 	}
+	glog.Info("vikasc:Create,calling update mems ", cgroupConfig.ResourceParameters.CpusetMems)
 
 	// it may confuse why we call set after we do apply, but the issue is that runc
 	// follows a similar pattern.  it's needed to ensure cpu quota is set properly.

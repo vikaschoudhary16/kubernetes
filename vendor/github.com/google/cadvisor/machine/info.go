@@ -85,6 +85,11 @@ func Info(sysFs sysfs.SysFs, fsInfo fs.FsInfo, inHostNamespace bool) (*info.Mach
 		glog.Errorf("Failed to get topology information: %v", err)
 	}
 
+	numaTopology, numNumaNodes, err := GetNumaTopology()
+	if err != nil {
+		glog.Errorf("Failed to get NUMA topology information: %v", err)
+	}
+
 	systemUUID, err := sysinfo.GetSystemUUID(sysFs)
 	if err != nil {
 		glog.Errorf("Failed to get system UUID: %v", err)
@@ -97,11 +102,13 @@ func Info(sysFs sysfs.SysFs, fsInfo fs.FsInfo, inHostNamespace bool) (*info.Mach
 
 	machineInfo := &info.MachineInfo{
 		NumCores:       numCores,
+		NumNumaNodes:   numNumaNodes,
 		CpuFrequency:   clockSpeed,
 		MemoryCapacity: memoryCapacity,
 		DiskMap:        diskMap,
 		NetworkDevices: netDevices,
 		Topology:       topology,
+		NumaTopology:   numaTopology,
 		MachineID:      getInfoFromFiles(filepath.Join(rootFs, *machineIdFilePath)),
 		SystemUUID:     systemUUID,
 		BootID:         getInfoFromFiles(filepath.Join(rootFs, *bootIdFilePath)),

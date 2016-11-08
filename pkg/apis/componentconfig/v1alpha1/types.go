@@ -339,7 +339,8 @@ type KubeletConfiguration struct {
 	SystemCgroups string `json:"systemCgroups"`
 	// cgroupRoot is the root cgroup to use for pods. This is handled by the
 	// container runtime on a best effort basis.
-	CgroupRoot string `json:"cgroupRoot"`
+	CgroupRoot         string `json:"cgroupRoot"`
+	CgroupsNumaSupport *bool  `json:"cgroupsNumaSupport,omitempty"`
 	// Enable QoS based Cgroup hierarchy: top level cgroups for QoS Classes
 	// And all Burstable and BestEffort pods are brought up under their
 	// specific top level QoS cgroup.

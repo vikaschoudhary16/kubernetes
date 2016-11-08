@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang/glog"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	libcontainerUtils "github.com/opencontainers/runc/libcontainer/utils"
@@ -30,13 +31,29 @@ func (s *CpusetGroup) Apply(d *cgroupData) error {
 }
 
 func (s *CpusetGroup) Set(path string, cgroup *configs.Cgroup) error {
+	glog.Info("vikasc:Set() entered")
+	glog.Info("vikasc:Set() path - %s resources %v ", path, cgroup.Resources)
 	if cgroup.Resources.CpusetCpus != "" {
 		if err := writeFile(path, "cpuset.cpus", cgroup.Resources.CpusetCpus); err != nil {
+			glog.Info("vikasc:Set() err %v", err)
+			return err
+		}
+	}
+	if cgroup.Resources.CpusetCpuExclusive != "" {
+		if err := writeFile(path, "cpuset.cpu_exclusive", cgroup.Resources.CpusetCpuExclusive); err != nil {
+			glog.Info("vikasc:Set() err %v", err)
 			return err
 		}
 	}
 	if cgroup.Resources.CpusetMems != "" {
+		glog.Info("vikasc:Set() setting couset_mems ", cgroup.Resources.CpusetMems)
 		if err := writeFile(path, "cpuset.mems", cgroup.Resources.CpusetMems); err != nil {
+			return err
+		}
+	}
+	if cgroup.Resources.CpusetMemExclusive != "" {
+		if err := writeFile(path, "cpuset.mem_exclusive", cgroup.Resources.CpusetMemExclusive); err != nil {
+			glog.Info("vikasc:Set() err %v", err)
 			return err
 		}
 	}

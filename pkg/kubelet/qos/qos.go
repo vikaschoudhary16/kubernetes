@@ -17,6 +17,7 @@ limitations under the License.
 package qos
 
 import (
+	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/util/sets"
@@ -47,10 +48,19 @@ func isResourceBestEffort(container *api.Container, resource api.ResourceName) b
 // A pod is guaranteed only when requests and limits are specified for all the containers and they are equal.
 // A pod is burstable if limits and requests do not match across all containers.
 func GetPodQOS(pod *api.Pod) QOSClass {
+	glog.Info("vikasc:GetPodQos, Entry")
 	requests := api.ResourceList{}
 	limits := api.ResourceList{}
 	zeroQuantity := resource.MustParse("0")
 	isGuaranteed := true
+	//CPUSET_SUPPORT_START
+	//if enable, ok := pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/numa"]; ok {
+	//	glog.Info("vikasc:GetPodQos, enable %v ", enable)
+	//	if enable == "true" {
+	//		return Guaranteed
+	//	}
+	//}
+	//CPUSET_SUPPORT_END
 	for _, container := range pod.Spec.Containers {
 		// process requests
 		for name, quantity := range container.Resources.Requests {

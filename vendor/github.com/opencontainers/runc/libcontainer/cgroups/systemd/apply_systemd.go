@@ -15,6 +15,7 @@ import (
 	systemdDbus "github.com/coreos/go-systemd/dbus"
 	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus"
+	"github.com/golang/glog"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/cgroups/fs"
 	"github.com/opencontainers/runc/libcontainer/configs"
@@ -201,6 +202,7 @@ func (m *Manager) Apply(pid int) error {
 		slice      = "system.slice"
 		properties []systemdDbus.Property
 	)
+	glog.Info("vikasc: Entered Apply() c.Paths %v", c.Paths)
 
 	if c.Paths != nil {
 		paths := make(map[string]string)
@@ -222,6 +224,7 @@ func (m *Manager) Apply(pid int) error {
 	if c.Parent != "" {
 		slice = c.Parent
 	}
+	glog.Info("vikasc: Apply() c.Resources.CpusetCpus %v", c.Resources.CpusetCpus)
 
 	properties = append(properties, systemdDbus.PropDescription("libcontainer container "+c.Name))
 
@@ -274,6 +277,7 @@ func (m *Manager) Apply(pid int) error {
 			newProp("BlockIOWeight", uint64(c.Resources.BlkioWeight)))
 	}
 
+
 	// We have to set kernel memory here, as we can't change it once
 	// processes have been attached to the cgroup.
 	if c.Resources.KernelMemory != 0 {
@@ -281,8 +285,10 @@ func (m *Manager) Apply(pid int) error {
 			return err
 		}
 	}
+	glog.Info("vikasc: Apply() properties %v", properties)
 
 	if _, err := theConn.StartTransientUnit(unitName, "replace", properties, nil); err != nil {
+		glog.Info("vikasc: Apply() error %v", err)
 		return err
 	}
 

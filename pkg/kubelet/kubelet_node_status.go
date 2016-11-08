@@ -444,6 +444,9 @@ func (kl *Kubelet) setNodeStatusMachineInfo(node *api.Node) {
 			node.Status.Capacity[api.ResourcePods] = *resource.NewQuantity(
 				int64(kl.maxPods), resource.DecimalSI)
 		}
+
+		node.Status.NumaNodesStatus = cadvisor.NumaNodeStatusListFromMachineInfo(info)
+
 		node.Status.Capacity[api.ResourceNvidiaGPU] = *resource.NewQuantity(
 			int64(kl.nvidiaGPUs), resource.DecimalSI)
 		if node.Status.NodeInfo.BootID != "" &&
@@ -457,20 +460,43 @@ func (kl *Kubelet) setNodeStatusMachineInfo(node *api.Node) {
 	}
 
 	// Set Allocatable.
-	node.Status.Allocatable = make(api.ResourceList)
-	for k, v := range node.Status.Capacity {
-		value := *(v.Copy())
-		if kl.reservation.System != nil {
-			value.Sub(kl.reservation.System[k])
+	if kl.cgroupsNumaSupport {
+		//numNumaNodes := len(node.Status.NumaNodesStatus)
+		for _, nodeStatus := range node.Status.NumaNodesStatus {
+			// Since system and k8s processes will be pinned to first core of each
+			// NUMA node and will not share cores with application pods, cpu shares
+			// are not being subtracted from capacity
+			value := nodeStatus.Capacity[api.ResourceMemory]
+			if kl.reservation.System != nil {
+				// TODO: system reserved memory should be subtracted with some sane logic(may be divided by numNumaNodes).
+				// Currently subtracting from each NUMA node which is not correct.
+				value.Sub(kl.reservation.System[api.ResourceMemory])
+			}
+			if kl.reservation.Kubernetes != nil {
+				value.Sub(kl.reservation.Kubernetes[api.ResourceMemory])
+			}
+			if value.Sign() < 0 {
+				// Negative Allocatable resources don't make sense.
+				value.Set(0)
+			}
+			nodeStatus.Allocatable[api.ResourceMemory] = value
 		}
-		if kl.reservation.Kubernetes != nil {
-			value.Sub(kl.reservation.Kubernetes[k])
+	} else {
+		node.Status.Allocatable = make(api.ResourceList)
+		for k, v := range node.Status.Capacity {
+			value := *(v.Copy())
+			if kl.reservation.System != nil {
+				value.Sub(kl.reservation.System[k])
+			}
+			if kl.reservation.Kubernetes != nil {
+				value.Sub(kl.reservation.Kubernetes[k])
+			}
+			if value.Sign() < 0 {
+				// Negative Allocatable resources don't make sense.
+				value.Set(0)
+			}
+			node.Status.Allocatable[k] = value
 		}
-		if value.Sign() < 0 {
-			// Negative Allocatable resources don't make sense.
-			value.Set(0)
-		}
-		node.Status.Allocatable[k] = value
 	}
 }
 

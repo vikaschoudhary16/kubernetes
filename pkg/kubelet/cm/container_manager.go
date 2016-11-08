@@ -54,6 +54,7 @@ type NodeConfig struct {
 	KubeletCgroupsName    string
 	ContainerRuntime      string
 	CgroupsPerQOS         bool
+	CgroupsNumaSupport    bool
 	CgroupRoot            string
 	CgroupDriver          string
 	ProtectKernelDefaults bool

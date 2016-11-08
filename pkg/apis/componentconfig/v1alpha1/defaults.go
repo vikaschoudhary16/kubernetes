@@ -164,6 +164,9 @@ func SetDefaults_KubeletConfiguration(obj *KubeletConfiguration) {
 	if obj.ConfigureCBR0 == nil {
 		obj.ConfigureCBR0 = boolVar(false)
 	}
+	if obj.CgroupsNumaSupport == nil {
+		obj.CgroupsNumaSupport = boolVar(false)
+	}
 	if obj.CgroupsPerQOS == nil {
 		obj.CgroupsPerQOS = boolVar(false)
 	}

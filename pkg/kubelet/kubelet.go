@@ -424,25 +424,26 @@ func NewMainKubelet(kubeCfg *componentconfig.KubeletConfiguration, kubeDeps *Kub
 		nodeRef:                   nodeRef,
 		nodeLabels:                kubeCfg.NodeLabels,
 		nodeStatusUpdateFrequency: kubeCfg.NodeStatusUpdateFrequency.Duration,
-		os:                kubeDeps.OSInterface,
-		oomWatcher:        oomWatcher,
-		cgroupsPerQOS:     kubeCfg.CgroupsPerQOS,
-		cgroupRoot:        kubeCfg.CgroupRoot,
-		mounter:           kubeDeps.Mounter,
-		writer:            kubeDeps.Writer,
-		configureCBR0:     myConfigureCBR0,
-		nonMasqueradeCIDR: kubeCfg.NonMasqueradeCIDR,
-		reconcileCIDR:     kubeCfg.ReconcileCIDR,
-		maxPods:           int(kubeCfg.MaxPods),
-		podsPerCore:       int(kubeCfg.PodsPerCore),
-		nvidiaGPUs:        int(kubeCfg.NvidiaGPUs),
-		syncLoopMonitor:   atomic.Value{},
-		resolverConfig:    kubeCfg.ResolverConfig,
-		cpuCFSQuota:       kubeCfg.CPUCFSQuota,
-		daemonEndpoints:   daemonEndpoints,
-		containerManager:  kubeDeps.ContainerManager,
-		nodeIP:            net.ParseIP(kubeCfg.NodeIP),
-		clock:             clock.RealClock{},
+		os:                 kubeDeps.OSInterface,
+		oomWatcher:         oomWatcher,
+		cgroupsPerQOS:      kubeCfg.CgroupsPerQOS,
+		cgroupsNumaSupport: kubeCfg.CgroupsNumaSupport,
+		cgroupRoot:         kubeCfg.CgroupRoot,
+		mounter:            kubeDeps.Mounter,
+		writer:             kubeDeps.Writer,
+		configureCBR0:      myConfigureCBR0,
+		nonMasqueradeCIDR:  kubeCfg.NonMasqueradeCIDR,
+		reconcileCIDR:      kubeCfg.ReconcileCIDR,
+		maxPods:            int(kubeCfg.MaxPods),
+		podsPerCore:        int(kubeCfg.PodsPerCore),
+		nvidiaGPUs:         int(kubeCfg.NvidiaGPUs),
+		syncLoopMonitor:    atomic.Value{},
+		resolverConfig:     kubeCfg.ResolverConfig,
+		cpuCFSQuota:        kubeCfg.CPUCFSQuota,
+		daemonEndpoints:    daemonEndpoints,
+		containerManager:   kubeDeps.ContainerManager,
+		nodeIP:             net.ParseIP(kubeCfg.NodeIP),
+		clock:              clock.RealClock{},
 		outOfDiskTransitionFrequency: kubeCfg.OutOfDiskTransitionFrequency.Duration,
 		reservation:                  *reservation,
 		enableCustomMetrics:          kubeCfg.EnableCustomMetrics,
@@ -898,6 +899,9 @@ type Kubelet struct {
 
 	// Whether or not we should have the QOS cgroup hierarchy for resource management
 	cgroupsPerQOS bool
+
+	// Whether or not we should have the QOS cgroup hierarchy for resource management
+	cgroupsNumaSupport bool
 
 	// If non-empty, pass this to the container runtime as the root cgroup.
 	cgroupRoot string

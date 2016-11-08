@@ -20,6 +20,8 @@ package qos
 type QOSClass string
 
 const (
+	// NumaGuaranteed is the Guaranteed qos class.
+	NumaGuaranteed QOSClass = "NumaGuaranteed"
 	// Guaranteed is the Guaranteed qos class.
 	Guaranteed QOSClass = "Guaranteed"
 	// Burstable is the Burstable qos class.

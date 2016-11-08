@@ -280,6 +280,10 @@ type KubeletConfiguration struct {
 	// And all Burstable and BestEffort pods are brought up under their
 	// specific top level QoS cgroup.
 	CgroupsPerQOS bool `json:"cgroupsPerQOS,omitempty"`
+	// Enable cpuset Cgroup hierarchy: top level cgroup nodes for each NUMA discovered are
+	// created at root of cpuset controller hierarchy. For each pod requesting NUMA, a cgroup
+	// node is added. Ex: <podUid.slice>
+	CgroupsNumaSupport bool `json:"cgroupsNumaSupport,omitempty"`
 	// driver that the kubelet uses to manipulate cgroups on the host (cgroupfs or systemd)
 	CgroupDriver string `json:"cgroupDriver,omitempty"`
 	// Cgroups that container runtime is expected to be isolated in.

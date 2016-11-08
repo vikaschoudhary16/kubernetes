@@ -18,6 +18,7 @@ package machine
 import (
 	"fmt"
 	"io/ioutil"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -212,6 +213,75 @@ func GetTopology(sysFs sysfs.SysFs, cpuinfo string) ([]info.Node, int, error) {
 		}
 	}
 	return nodes, numCores, nil
+}
+
+func GetNumaTopology() (map[string]*info.NumaNode, int, error) {
+
+	// root@dell-r620-01: ~ # numactl --hardware
+	// available: 2 nodes (0-1)
+	// node 0 cpus: 0 2 4 6 8 10 12 14
+	// node 0 size: 65490 MB
+	// node 0 free: 490 MB
+	// node 1 cpus: 1 3 5 7 9 11 13 15
+	// node 1 size: 65536 MB
+	// node 1 free: 66 MB
+	// node distances:
+	// node   0   1
+	//   0:  10  20
+	//   1:  20  10
+
+	numaTopology := make(map[string]*info.NumaNode)
+	var numNumaNodes int
+	path, err := exec.LookPath("numactl")
+	if err != nil {
+		return nil, -1, fmt.Errorf("numactl is not found")
+	}
+	fmt.Printf("numactl is available at %s\n", path)
+
+	out, err := exec.Command(path, "--hardware").Output()
+	if err != nil {
+		return nil, -1, fmt.Errorf("failed numactl execution: %v", err)
+	}
+
+	fmt.Printf("numactl output: %s\n", out)
+
+	for _, line := range strings.Split(string(out), "\n") {
+		nl := strings.Split(line, " ")
+		if len(nl) > 2 {
+			switch nl[2] {
+			case "cpus:":
+				key := (nl[0]) + (nl[1])
+				id, _ := strconv.Atoi(nl[1])
+				new_numa_node := info.NumaNode{
+					Id:    id,
+					Cores: nl[3:],
+				}
+				new_numa_node.NumCores = len(new_numa_node.Cores)
+				numaTopology[key] = &new_numa_node
+				numNumaNodes++
+
+			case "free:":
+				memory, _ := strconv.Atoi(nl[3])
+				// convert MB to Bytes
+				memory = memory * 1024 * 1024
+				key := (nl[0]) + (nl[1])
+				numaTopology[key].MemoryFree = uint64(memory)
+
+			case "size:":
+				memory, _ := strconv.Atoi(nl[3])
+				// convert MB to Bytes
+				memory = memory * 1024 * 1024
+				key := (nl[0]) + (nl[1])
+				numaTopology[key].MemorySize = uint64(memory)
+			}
+		}
+	}
+	fmt.Printf(" numNumaNodes %d\n", numNumaNodes)
+	for _, node := range numaTopology {
+		fmt.Printf(" %v\n", node)
+	}
+
+	return numaTopology, numNumaNodes, nil
 }
 
 func extractValue(s string, r *regexp.Regexp) (bool, int, error) {

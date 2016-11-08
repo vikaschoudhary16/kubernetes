@@ -33,3 +33,35 @@ func CapacityFromMachineInfo(info *cadvisorApi.MachineInfo) api.ResourceList {
 	}
 	return c
 }
+
+func NumaNodeStatusListFromMachineInfo(info *cadvisorApi.MachineInfo) []api.NumaNodeStatus {
+	nt := info.NumaTopology
+	list_ns := make([]api.NumaNodeStatus, len(nt))
+	for _, numaNode := range nt {
+		capacity := api.ResourceList{
+			api.ResourceCPU: *resource.NewMilliQuantity(
+				// first coreof each node reserved for system
+				int64(((*numaNode).NumCores-1)*1000),
+				resource.DecimalSI),
+			api.ResourceMemory: *resource.NewQuantity(
+				int64((*numaNode).MemorySize),
+				resource.BinarySI),
+		}
+
+		allocatable := api.ResourceList{
+			api.ResourceCPU: *resource.NewMilliQuantity(
+				// first coreof each node reserved for system
+				int64(((*numaNode).NumCores-1)*1000),
+				resource.DecimalSI),
+			api.ResourceMemory: *resource.NewQuantity(
+				int64((*numaNode).MemoryFree),
+				resource.BinarySI),
+		}
+		ns := api.NumaNodeStatus{
+			Capacity:    capacity,
+			Allocatable: allocatable,
+		}
+		list_ns = append(list_ns, ns)
+	}
+	return list_ns
+}

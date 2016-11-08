@@ -72,6 +72,7 @@ func (m *podContainerManagerImpl) Exists(pod *api.Pod) bool {
 // If the pod level container doesen't already exist it is created.
 func (m *podContainerManagerImpl) EnsureExists(pod *api.Pod) error {
 	podContainerName, _ := m.GetPodContainerName(pod)
+	glog.V(3).Infof("vikasc: entered EnsureExists pc-name %s", podContainerName)
 	// check if container already exist
 	alreadyExists := m.Exists(pod)
 	if !alreadyExists {
@@ -100,15 +101,41 @@ func (m *podContainerManagerImpl) EnsureExists(pod *api.Pod) error {
 // "pod#UID" where the UID is the Pod UID
 func (m *podContainerManagerImpl) GetPodContainerName(pod *api.Pod) (CgroupName, string) {
 	podQOS := qos.GetPodQOS(pod)
+	glog.V(3).Infof("vikasc: entered GetPodContainerName")
+	var numaNodeId string
+	if enable, ok := pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/numa"]; ok {
+		if enable == "true" {
+			if nodeNum, ok := pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/numa_node"]; ok {
+				glog.Info("vikasc:GetPodQos, numaNodeNum %d ", nodeNum)
+				numaNodeId = nodeNum
+			} else {
+				glog.Errorf("Failed to find NUMA node in the pod")
+				return "", ""
+			}
+		}
+	}
+
 	// Get the parent QOS container name
 	var parentContainer string
 	switch podQOS {
 	case qos.Guaranteed:
 		parentContainer = m.qosContainersInfo.Guaranteed
+		if len(m.nodeInfo.Status.NumaNodesStatus) != 0 {
+			parentContainer = path.Join(parentContainer, "numa_"+numaNodeId)
+		}
+
 	case qos.Burstable:
 		parentContainer = m.qosContainersInfo.Burstable
+		if len(m.nodeInfo.Status.NumaNodesStatus) != 0 {
+			parentContainer = path.Join(m.qosContainersInfo.Guaranteed,
+				"numa_"+numaNodeId+"/"+string(qos.Burstable))
+		}
 	case qos.BestEffort:
 		parentContainer = m.qosContainersInfo.BestEffort
+		if len(m.nodeInfo.Status.NumaNodesStatus) != 0 {
+			parentContainer = path.Join(m.qosContainersInfo.Guaranteed,
+				"numa_"+numaNodeId+"/"+string(qos.BestEffort))
+		}
 	}
 	podContainer := podCgroupNamePrefix + string(pod.UID)
 

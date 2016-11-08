@@ -75,10 +75,12 @@ type Resources struct {
 	CpuRtPeriod int64 `json:"cpu_rt_period"`
 
 	// CPU to use
-	CpusetCpus string `json:"cpuset_cpus"`
+	CpusetCpus         string `json:"cpuset_cpus"`
+	CpusetCpuExclusive string `json:"cpuset_cpu_exclusive"`
 
 	// MEM to use
-	CpusetMems string `json:"cpuset_mems"`
+	CpusetMems         string `json:"cpuset_mems"`
+	CpusetMemExclusive string `json:"cpuset_mem_exclusive"`
 
 	// Process limit; set <= `0' to disable limit.
 	PidsLimit int64 `json:"pids_limit"`

@@ -2508,6 +2508,13 @@ type NodeSystemInfo struct {
 	Architecture string `json:"architecture" protobuf:"bytes,10,opt,name=architecture"`
 }
 
+type NumaNodeStatus struct {
+	// Capacity represents the total resources of a NUMA node.
+	Capacity ResourceList `json:"capacity,omitempty"`
+	// Allocatable represents the resources of a node that are available for scheduling.
+	Allocatable ResourceList `json:"allocatable,omitempty"`
+}
+
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
 	// Capacity represents the total resources of a node.
@@ -2538,6 +2545,8 @@ type NodeStatus struct {
 	VolumesInUse []UniqueVolumeName `json:"volumesInUse,omitempty" protobuf:"bytes,9,rep,name=volumesInUse"`
 	// List of volumes that are attached to the node.
 	VolumesAttached []AttachedVolume `json:"volumesAttached,omitempty" protobuf:"bytes,10,rep,name=volumesAttached"`
+	// List of NUMA nodes that are discovered on the node.
+	NumaNodesStatus []NumaNodeStatus `json:"numaNodes,omitempty"`
 }
 
 type UniqueVolumeName string

@@ -31,6 +31,14 @@ type ResourceConfig struct {
 	CpuQuota *int64
 	// CPU quota period.
 	CpuPeriod *int64
+	// CPU to use
+	CpusetCpus *string
+	// Exclusive access to CPUs
+	CpusetCpuExclusive *string
+	// MEM to use
+	CpusetMems *string
+	// Exclusive access to Memory nodes
+	CpusetMemExclusive *string
 }
 
 // CgroupName is the abstract name of a cgroup prior to any driver specific conversion.
@@ -76,6 +84,7 @@ type CgroupManager interface {
 
 // QOSContainersInfo stores the names of containers per qos
 type QOSContainersInfo struct {
+	//Numa       []string
 	Guaranteed string
 	BestEffort string
 	Burstable  string

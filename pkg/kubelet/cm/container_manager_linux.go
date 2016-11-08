@@ -24,11 +24,13 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/blang/semver"
 	"github.com/golang/glog"
+	cadvisorapi "github.com/google/cadvisor/info/v1"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/cgroups/fs"
 	"github.com/opencontainers/runc/libcontainer/configs"
@@ -236,32 +238,86 @@ const (
 // We create top level QoS containers for only Burstable and Best Effort
 // and not Guaranteed QoS class. All guaranteed pods are nested under the
 // RootContainer by default. InitQOS is called only once during kubelet bootstrapping.
-func InitQOS(cgroupDriver, rootContainer string, subsystems *CgroupSubsystems) (QOSContainersInfo, error) {
+func InitQOS(cgroupDriver, rootContainer string, subsystems *CgroupSubsystems, numaSupport bool,
+	info cadvisorapi.MachineInfo) (QOSContainersInfo, error) {
+
 	cm := NewCgroupManager(subsystems, cgroupDriver)
 	// Top level for Qos containers are created only for Burstable
 	// and Best Effort classes
 	qosClasses := [2]qos.QOSClass{qos.Burstable, qos.BestEffort}
 
-	// Create containers for both qos classes
-	for _, qosClass := range qosClasses {
-		// get the container's absolute name
-		absoluteContainerName := CgroupName(path.Join(rootContainer, string(qosClass)))
-		// containerConfig object stores the cgroup specifications
-		containerConfig := &CgroupConfig{
-			Name:               absoluteContainerName,
-			ResourceParameters: &ResourceConfig{},
+	numaTopology := info.NumaTopology
+	glog.Info("numaTopology %v\n", numaTopology)
+
+	if numaSupport {
+		for _, numaNode := range numaTopology {
+			glog.Info("vikasc: NUMA start")
+			// get the container's absolute name
+			// leaving first core for system and kube reserved
+			cpus := strings.Join((*numaNode).Cores[1:], ",")
+			mems := strconv.Itoa((*numaNode).Id)
+			numaNodeName := "numa_" + strconv.Itoa((*numaNode).Id)
+			absoluteNumaContainerName := CgroupName(path.Join(rootContainer, numaNodeName))
+			if !cm.Exists(absoluteNumaContainerName) {
+				// containerConfig object stores the cgroup specifications
+				containerConfig := &CgroupConfig{
+					Name:               absoluteNumaContainerName,
+					ResourceParameters: &ResourceConfig{},
+				}
+
+				containerConfig.ResourceParameters.CpusetCpus = &cpus
+				containerConfig.ResourceParameters.CpusetMems = &mems
+				if err := cm.Create(containerConfig); err != nil {
+					return QOSContainersInfo{}, fmt.Errorf("failed to create top level %v cgroup : %v", absoluteNumaContainerName, err)
+				}
+			}
+
+			// Create containers for both qos classes
+			for _, qosClass := range qosClasses {
+				// get the container's absolute name
+				absoluteContainerName := CgroupName(path.Join(string(absoluteNumaContainerName), string(qosClass)))
+				// containerConfig object stores the cgroup specifications
+				containerConfig := &CgroupConfig{
+					Name:               absoluteContainerName,
+					ResourceParameters: &ResourceConfig{},
+				}
+				if qosClass == qos.BestEffort {
+					shares := int64(MinShares)
+					containerConfig.ResourceParameters.CpuShares = &shares
+				}
+				// check if it exists
+				if !cm.Exists(absoluteContainerName) {
+					if err := cm.Create(containerConfig); err != nil {
+						return QOSContainersInfo{}, fmt.Errorf("failed to create top level %v QOS cgroup : %v", qosClass, err)
+					}
+				}
+			}
 		}
-		if qosClass == qos.BestEffort {
-			shares := int64(MinShares)
-			containerConfig.ResourceParameters.CpuShares = &shares
-		}
-		// check if it exists
-		if !cm.Exists(absoluteContainerName) {
-			if err := cm.Create(containerConfig); err != nil {
-				return QOSContainersInfo{}, fmt.Errorf("failed to create top level %v QOS cgroup : %v", qosClass, err)
+		glog.Info("vikasc: NUMA end")
+	} else {
+
+		// Create containers for both qos classes
+		for _, qosClass := range qosClasses {
+			// get the container's absolute name
+			absoluteContainerName := CgroupName(path.Join(rootContainer, string(qosClass)))
+			// containerConfig object stores the cgroup specifications
+			containerConfig := &CgroupConfig{
+				Name:               absoluteContainerName,
+				ResourceParameters: &ResourceConfig{},
+			}
+			if qosClass == qos.BestEffort {
+				shares := int64(MinShares)
+				containerConfig.ResourceParameters.CpuShares = &shares
+			}
+			// check if it exists
+			if !cm.Exists(absoluteContainerName) {
+				if err := cm.Create(containerConfig); err != nil {
+					return QOSContainersInfo{}, fmt.Errorf("failed to create top level %v QOS cgroup : %v", qosClass, err)
+				}
 			}
 		}
 	}
+
 	// Store the top level qos container names
 	qosContainersInfo := QOSContainersInfo{
 		Guaranteed: rootContainer,
@@ -328,7 +384,15 @@ func (cm *containerManagerImpl) setupNode() error {
 
 	// Setup top level qos containers only if CgroupsPerQOS flag is specified as true
 	if cm.NodeConfig.CgroupsPerQOS {
-		qosContainersInfo, err := InitQOS(cm.NodeConfig.CgroupDriver, cm.NodeConfig.CgroupRoot, cm.subsystems)
+		var machineInfo cadvisorapi.MachineInfo
+		if info, err := cm.cadvisorInterface.MachineInfo(); err != nil {
+			if cm.NodeConfig.CgroupsNumaSupport {
+				return fmt.Errorf("failed to get Machine Info: %v", err)
+			}
+		} else {
+			machineInfo = *info
+		}
+		qosContainersInfo, err := InitQOS(cm.NodeConfig.CgroupDriver, cm.NodeConfig.CgroupRoot, cm.subsystems, cm.NodeConfig.CgroupsNumaSupport, machineInfo)
 		if err != nil {
 			return fmt.Errorf("failed to initialise top level QOS containers: %v", err)
 		}
