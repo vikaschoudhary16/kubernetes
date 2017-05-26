@@ -1317,6 +1317,49 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector
 }
 
+// +genclient=true
+// +nonNamespaced=true
+
+type ResourceClass struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ObjectMeta
+
+	//Spec defines a persistent volume owned by the cluster
+	// +optional
+	Spec ResourceClassSpec
+
+	// Status represents the current information about persistent volume.
+	// +optional
+	Status ResourceClassStatus
+}
+
+type ResourceClassStatus struct {
+	Capacity    resource.Quantity
+	Allocatable resource.Quantity
+}
+
+type ResourceClassSpec struct {
+	Required AllRequiredSelectors
+}
+
+type AllRequiredSelectors struct {
+	MatchExpSelectors []MatchExpSelector
+}
+
+type MatchExpSelector struct {
+	Key      string
+	Operator string
+	Values   []string
+}
+
+type ResourceClassList struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ListMeta
+	Items []ResourceClass
+}
+
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
 	// Required: Version of the schema the FieldPath is written in terms of.
