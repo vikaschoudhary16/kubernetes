@@ -35,6 +35,7 @@ type CoreInterface interface {
 	PodsGetter
 	PodTemplatesGetter
 	ReplicationControllersGetter
+	ResourceClassesGetter
 	ResourceQuotasGetter
 	SecretsGetter
 	ServicesGetter
@@ -92,6 +93,10 @@ func (c *CoreClient) PodTemplates(namespace string) PodTemplateInterface {
 
 func (c *CoreClient) ReplicationControllers(namespace string) ReplicationControllerInterface {
 	return newReplicationControllers(c, namespace)
+}
+
+func (c *CoreClient) ResourceClasses() ResourceClassInterface {
+	return newResourceClasses(c)
 }
 
 func (c *CoreClient) ResourceQuotas(namespace string) ResourceQuotaInterface {

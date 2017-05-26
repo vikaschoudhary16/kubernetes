@@ -74,6 +74,10 @@ func (c *FakeCore) ReplicationControllers(namespace string) internalversion.Repl
 	return &FakeReplicationControllers{c, namespace}
 }
 
+func (c *FakeCore) ResourceClasses() internalversion.ResourceClassInterface {
+	return &FakeResourceClasses{c}
+}
+
 func (c *FakeCore) ResourceQuotas(namespace string) internalversion.ResourceQuotaInterface {
 	return &FakeResourceQuotas{c, namespace}
 }

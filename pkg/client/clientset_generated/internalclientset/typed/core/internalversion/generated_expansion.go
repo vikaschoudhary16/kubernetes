@@ -32,6 +32,8 @@ type PodTemplateExpansion interface{}
 
 type ReplicationControllerExpansion interface{}
 
+type ResourceClassExpansion interface{}
+
 type ResourceQuotaExpansion interface{}
 
 type SecretExpansion interface{}
