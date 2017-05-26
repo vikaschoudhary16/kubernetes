@@ -1413,6 +1413,52 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
 }
 
+type ResourceClass struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	//Spec defines resources required
+	// +optional
+	Spec ResourceClassSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+
+	// Status represents the current information about resource class.
+	// +optional
+	Status ResourceClassStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+type ResourceClassStatus struct {
+	Capacity    resource.Quantity `json:"capacity,omitempty" protobuf:"bytes,1,opt,name=capacity"`
+	Allocatable resource.Quantity `json:"allocatable,omitempty" protobuf:"bytes,2,opt,name=allocatable"`
+}
+
+type ResourceClassSpec struct {
+	Required AllRequiredSelectors `protobuf:"bytes,1,opt,name=required"`
+}
+
+type AllRequiredSelectors struct {
+	MatchExpSelectors []MatchExpSelector `protobuf:"bytes,1,rep,name=matchExpSelectors"`
+}
+type OperatorType string
+
+const (
+	OperatorTypeIN OperatorType = "In"
+	OperatorTypeGt OperatorType = "Gt"
+)
+
+type MatchExpSelector struct {
+	Key      string       `json:"key,omitempty" protobuf:"bytes,1,opt,name=key"`
+	Operator OperatorType `json:"operator,omitempty" protobuf:"bytes,2,opt,name=operator"`
+	Values   []string     `json:"values,omitempty" protobuf:"bytes,3,rep,name=values"`
+}
+
+type ResourceClassList struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Items           []ResourceClass `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
 	// Version of the schema the FieldPath is written in terms of, defaults to "v1".
