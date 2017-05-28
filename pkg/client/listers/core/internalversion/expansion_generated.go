@@ -86,6 +86,10 @@ type PodTemplateListerExpansion interface{}
 // PodTemplateNamespaceLister.
 type PodTemplateNamespaceListerExpansion interface{}
 
+// ResourceClassListerExpansion allows custom methods to be added to
+// ResourceClassLister.
+type ResourceClassListerExpansion interface{}
+
 // ResourceQuotaListerExpansion allows custom methods to be added to
 // ResourceQuotaLister.
 type ResourceQuotaListerExpansion interface{}

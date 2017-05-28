@@ -79,6 +79,10 @@ message Affinity {
   optional PodAntiAffinity podAntiAffinity = 3;
 }
 
+message AllRequiredSelectors {
+  repeated MatchExpSelector matchExpSelectors = 1;
+}
+
 // AttachedVolume describes a volume attached to a node
 message AttachedVolume {
   // Name of the attached volume
@@ -1446,6 +1450,14 @@ message LocalVolumeSource {
   // For alpha, this path must be a directory
   // Once block as a source is supported, then this path can point to a block device
   optional string path = 1;
+}
+
+message MatchExpSelector {
+  optional string key = 1;
+
+  optional string operator = 2;
+
+  repeated string values = 3;
 }
 
 // Represents an NFS mount that lasts the lifetime of a pod.
@@ -3195,6 +3207,36 @@ message ReplicationControllerStatus {
   // +patchMergeKey=type
   // +patchStrategy=merge
   repeated ReplicationControllerCondition conditions = 6;
+}
+
+message ResourceClass {
+  // +optional
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta metadata = 1;
+
+  // Spec defines resources required
+  // +optional
+  optional ResourceClassSpec spec = 2;
+
+  // Status represents the current information about resource class.
+  // +optional
+  optional ResourceClassStatus status = 3;
+}
+
+message ResourceClassList {
+  // +optional
+  optional k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta metadata = 1;
+
+  repeated ResourceClass items = 2;
+}
+
+message ResourceClassSpec {
+  optional AllRequiredSelectors required = 1;
+}
+
+message ResourceClassStatus {
+  optional k8s.io.apimachinery.pkg.api.resource.Quantity capacity = 1;
+
+  optional k8s.io.apimachinery.pkg.api.resource.Quantity allocatable = 2;
 }
 
 // ResourceFieldSelector represents container resources (cpu, memory) and their output format

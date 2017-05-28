@@ -48,6 +48,8 @@ type Interface interface {
 	PodTemplates() PodTemplateInformer
 	// ReplicationControllers returns a ReplicationControllerInformer.
 	ReplicationControllers() ReplicationControllerInformer
+	// ResourceClasses returns a ResourceClassInformer.
+	ResourceClasses() ResourceClassInformer
 	// ResourceQuotas returns a ResourceQuotaInformer.
 	ResourceQuotas() ResourceQuotaInformer
 	// Secrets returns a SecretInformer.
@@ -125,6 +127,11 @@ func (v *version) PodTemplates() PodTemplateInformer {
 // ReplicationControllers returns a ReplicationControllerInformer.
 func (v *version) ReplicationControllers() ReplicationControllerInformer {
 	return &replicationControllerInformer{factory: v.SharedInformerFactory}
+}
+
+// ResourceClasses returns a ResourceClassInformer.
+func (v *version) ResourceClasses() ResourceClassInformer {
+	return &resourceClassInformer{factory: v.SharedInformerFactory}
 }
 
 // ResourceQuotas returns a ResourceQuotaInformer.
