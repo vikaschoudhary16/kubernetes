@@ -591,6 +591,22 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 }
 
 func (kl *Kubelet) setNodeStatusMachineInfo(node *v1.Node) {
+	// Note(VikasC): This is a hack to populate device for ResourceClass PoC
+	if kl.experimentalDeviceFilePath != "" {
+		devicesP, err := nodeutil.ReadDeviceFiles(kl.experimentalDeviceFilePath)
+		if err != nil {
+			glog.Errorf("Error while reading device files: %v", err)
+		}
+		if len(devicesP) != 0 {
+			var devicesV []v1.Device
+			for _, d := range devicesP {
+				devicesV = append(devicesV, *d)
+			}
+			node.Status.CapacityDevices = devicesV
+			node.Status.AllocatableDevices = devicesV
+		}
+	}
+
 	// Note: avoid blindly overwriting the capacity in case opaque
 	//       resources are being advertised.
 	if node.Status.Capacity == nil {

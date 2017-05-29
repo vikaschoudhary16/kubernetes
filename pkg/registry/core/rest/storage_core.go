@@ -55,6 +55,7 @@ import (
 	podtemplatestore "k8s.io/kubernetes/pkg/registry/core/podtemplate/storage"
 	"k8s.io/kubernetes/pkg/registry/core/rangeallocation"
 	controllerstore "k8s.io/kubernetes/pkg/registry/core/replicationcontroller/storage"
+	resourceclassstore "k8s.io/kubernetes/pkg/registry/core/resourceclass/storage"
 	resourcequotastore "k8s.io/kubernetes/pkg/registry/core/resourcequota/storage"
 	secretstore "k8s.io/kubernetes/pkg/registry/core/secret/storage"
 	"k8s.io/kubernetes/pkg/registry/core/service/allocator"
@@ -118,6 +119,7 @@ func (c LegacyRESTStorageProvider) NewLegacyRESTStorage(restOptionsGetter generi
 	eventStorage := eventstore.NewREST(restOptionsGetter, uint64(c.EventTTL.Seconds()))
 	limitRangeStorage := limitrangestore.NewREST(restOptionsGetter)
 
+	resourceClassStorage, resourceClassStatusStorage := resourceclassstore.NewStorage(restOptionsGetter)
 	resourceQuotaStorage, resourceQuotaStatusStorage := resourcequotastore.NewREST(restOptionsGetter)
 	secretStorage := secretstore.NewREST(restOptionsGetter)
 	persistentVolumeStorage, persistentVolumeStatusStorage := pvstore.NewREST(restOptionsGetter)
@@ -212,6 +214,8 @@ func (c LegacyRESTStorageProvider) NewLegacyRESTStorage(restOptionsGetter generi
 		"events": eventStorage,
 
 		"limitRanges":                   limitRangeStorage,
+		"resourceClasses":               resourceClassStorage,
+		"resourceClasses/status":        resourceClassStatusStorage,
 		"resourceQuotas":                resourceQuotaStorage,
 		"resourceQuotas/status":         resourceQuotaStatusStorage,
 		"namespaces":                    namespaceStorage,
