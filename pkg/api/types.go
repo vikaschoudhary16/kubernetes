@@ -1325,6 +1325,46 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector
 }
 
+// +genclient=true
+// +nonNamespaced=true
+type ResourceClass struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ObjectMeta
+
+	// Spec defines resources required
+	// +optional
+	Spec ResourceClassSpec
+
+	// Status represents the current information about resource class
+	// +optional
+	Status ResourceClassStatus
+}
+
+type ResourceClassStatus struct {
+	// Total devices which can satisfy this resource class
+	// +optional
+	Capacity int32
+	// List of devices which can satisfy this resource class
+	// +optional
+	Allocatable int32
+}
+
+type ResourceClassSpec struct {
+	// AllRequired means all device selectors must satisfy
+	// +optional
+	AllRequired []DeviceSelector
+}
+
+// +genclient=true
+// +nonNamespaced=true
+type ResourceClassList struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ListMeta
+	Items []ResourceClass
+}
+
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
 	// Required: Version of the schema the FieldPath is written in terms of.
@@ -2859,6 +2899,35 @@ type NodeSystemInfo struct {
 	Architecture string
 }
 
+// Device is a physical or logical device
+type Device struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ObjectMeta
+	//Type of the device
+}
+
+type OperatorType string
+
+// These are the supported operators on device properties
+const (
+	// In operator means value must be among provided values
+	InOperator OperatorType = "In"
+	// In operator means value must be greater than provided value
+	GreatThanOperator OperatorType = "Gt"
+	// In operator means value must be less than provided value
+	LessThanOperator OperatorType = "Lt"
+	// Eq operator means value must be Equal to provided value
+	EqualToOperator OperatorType = "Eq"
+)
+
+type DeviceSelector struct {
+	// Example, version, type etc.
+	Property map[string]string
+	// operator
+	PropertyOperator OperatorType
+}
+
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
 	// Capacity represents the total resources of a node.
@@ -2891,6 +2960,12 @@ type NodeStatus struct {
 	// List of volumes that are attached to the node.
 	// +optional
 	VolumesAttached []AttachedVolume
+	// Total devices that are attached to the node.
+	// +optional
+	CapacityDevices []Device
+	// Allocatable devices that are attached to the node.
+	// +optional
+	AllocatableDevices []Device
 }
 
 type UniqueVolumeName string

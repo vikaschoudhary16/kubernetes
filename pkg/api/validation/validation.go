@@ -240,6 +240,7 @@ func maskTrailingDash(name string) string {
 // Prefix indicates this name will be used as part of generation, in which case
 // trailing dashes are allowed.
 var ValidatePodName = NameIsDNSSubdomain
+var ValidateResourceClassName = NameIsDNSSubdomain
 
 // ValidateReplicationControllerName can be used to check whether the given replication
 // controller name is valid.
@@ -2154,6 +2155,12 @@ func ValidateTolerations(tolerations []api.Toleration, fldPath *field.Path) fiel
 		}
 	}
 	return allErrors
+}
+
+func ValidateResourceClass(rClass *api.ResourceClass) field.ErrorList {
+	fldPath := field.NewPath("metadata")
+	allErrs := ValidateObjectMeta(&rClass.ObjectMeta, false, ValidateResourceClassName, fldPath)
+	return allErrs
 }
 
 // ValidatePod tests if required fields in the pod are set.

@@ -176,6 +176,8 @@ const (
 type KubeletConfiguration struct {
 	metav1.TypeMeta
 
+	// DeviceFilePath is the path to the directory containing device yaml files
+	DeviceFilePath string
 	// podManifestPath is the path to the directory containing pod manifests to
 	// run, or the path to a single manifest file
 	PodManifestPath string

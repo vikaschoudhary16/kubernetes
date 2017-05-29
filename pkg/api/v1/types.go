@@ -1421,6 +1421,53 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
 }
 
+// +genclient=true
+// +nonNamespaced=true
+// ResourceClass is a resource class
+type ResourceClass struct {
+	metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Spec defines resources required
+	// +optional
+	Spec ResourceClassSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+
+	// Status represents the current information about resource class.
+	// +optional
+	Status ResourceClassStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// Spec defines resources required
+type ResourceClassSpec struct {
+	// AllRequired means all device selectors must satisfy
+	// +optional
+	AllRequired []DeviceSelector `json:"required,omitempty" protobuf:"bytes,1,opt,name=required"`
+}
+
+// ResourceClassStatus is information about the current status of a resource class.
+type ResourceClassStatus struct {
+	// Total devices which can satisfy this resource class
+	// +optional
+	Capacity int32 `json:"varint,omitempty" protobuf:"varint,1,opt,name=capacity"`
+	// List of devices which can satisfy this resource class
+	// +optional
+	Allocatable int32 `json:"allocatable,omitempty" protobuf:"varint,2,opt,name=allocatable"`
+}
+
+// +genclient=true
+// +nonNamespaced=true
+// ResourceClassList is list of rcs
+type ResourceClassList struct {
+	metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// +optional
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	// List of nodes
+	Items []ResourceClass `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
 	// Version of the schema the FieldPath is written in terms of, defaults to "v1".
@@ -3279,6 +3326,38 @@ type NodeSystemInfo struct {
 	Architecture string `json:"architecture" protobuf:"bytes,10,opt,name=architecture"`
 }
 
+// +nonNamespaced=true
+// ResourceClass is a resource class
+// Device is a physical or logical device
+type Device struct {
+	metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+}
+
+type OperatorType string
+
+// These are the supported operators on device properties
+const (
+	// In operator means value must be among provided values
+	InOperator OperatorType = "In"
+	// In operator means value must be greater than provided value
+	GreatThanOperator OperatorType = "Gt"
+	// In operator means value must be less than provided value
+	LessThanOperator OperatorType = "Lt"
+	// Eq operator means value must be Equal to provided value
+	EqualToOperator OperatorType = "Eq"
+)
+
+// Device Selector verifies if result matches the value if Operator applied on the property key value
+type DeviceSelector struct {
+	// Example, version, type etc.
+	Property map[string]string `json:"property" protobuf:"bytes,1,rep,name=property"`
+	// operator
+	PropertyOperator OperatorType `json:"operator" protobuf:"bytes,2,name=operator"`
+}
+
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
 	// Capacity represents the total resources of a node.
@@ -3323,6 +3402,12 @@ type NodeStatus struct {
 	// List of volumes that are attached to the node.
 	// +optional
 	VolumesAttached []AttachedVolume `json:"volumesAttached,omitempty" protobuf:"bytes,10,rep,name=volumesAttached"`
+	// Total devices that are attached to the node.
+	// +optional
+	CapacityDevices []Device `json:"deviceCapacity,omitempty" protobuf:"bytes,11,rep,name=deviceCapacity"`
+	// Allocatable devices that are attached to the node.
+	// +optional
+	AllocatableDevices []Device `json:"deviceAllocatable,omitempty" protobuf:"bytes,12,rep,name=deviceAllocatable"`
 }
 
 type UniqueVolumeName string

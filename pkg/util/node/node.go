@@ -19,15 +19,20 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
@@ -175,4 +180,119 @@ func PatchNodeStatus(c clientset.Interface, nodeName types.NodeName, oldNode *v1
 		return nil, fmt.Errorf("failed to patch status %q for node %q: %v", patchBytes, nodeName, err)
 	}
 	return updatedNode, nil
+}
+
+func ReadDeviceFiles(path string) ([]*v1.Device, error) {
+	statInfo, err := os.Stat(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
+	if statInfo.Mode().IsDir() {
+		devices, err := ExtractDevicesFromDir(path)
+		if err != nil {
+			return devices, err
+		}
+		return devices, err
+	} else {
+		return nil, fmt.Errorf("path is not a directory")
+	}
+}
+
+func ExtractDevicesFromDir(name string) ([]*v1.Device, error) {
+	dirents, err := filepath.Glob(filepath.Join(name, "[^.]*"))
+	if err != nil {
+		return nil, fmt.Errorf("glob failed: %v", err)
+	}
+
+	devices := make([]*v1.Device, 0)
+	if len(dirents) == 0 {
+		return devices, nil
+	}
+
+	sort.Strings(dirents)
+	for _, path := range dirents {
+		statInfo, err := os.Stat(path)
+		if err != nil {
+			glog.V(1).Infof("Can't get metadata for %q: %v", path, err)
+			continue
+		}
+
+		switch {
+		case statInfo.Mode().IsDir():
+			glog.V(1).Infof("Not recursing into config path %q", path)
+		case statInfo.Mode().IsRegular():
+			device, err := ExtractDeviceFromFile(path)
+			if err != nil {
+				glog.V(1).Infof("Can't process config file %q: %v", path, err)
+			} else {
+				devices = append(devices, device)
+			}
+		default:
+			glog.V(1).Infof("Config path %q is not a directory or file: %v", path, statInfo.Mode())
+		}
+	}
+	return devices, nil
+}
+
+func ExtractDeviceFromFile(filename string) (device *v1.Device, err error) {
+	glog.V(3).Infof("Reading config file %q", filename)
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return device, err
+	}
+
+	//defaultFn := func(device *api.Device) error {
+	//      return s.applyDefaults(device, filename)
+	//}
+
+	parsed, device, deviceErr := TryDecodeSingleDevice(data)
+	if parsed {
+		if deviceErr != nil {
+			return device, deviceErr
+		}
+		return device, nil
+	}
+
+	return device, fmt.Errorf("%v: read '%v', but couldn't parse as device(%v).\n",
+		filename, string(data), deviceErr)
+}
+
+func TryDecodeSingleDevice(data []byte) (parsed bool, device *v1.Device, err error) {
+	// JSON is valid YAML, so this should work for everything.
+	json, err := utilyaml.ToJSON(data)
+	if err != nil {
+		return false, nil, err
+	}
+	obj, err := runtime.Decode(api.Codecs.UniversalDecoder(), json)
+	if err != nil {
+		return false, device, err
+	}
+	// Check whether the object could be converted to single Device.
+	if _, ok := obj.(*api.Device); !ok {
+		err = fmt.Errorf("invalid device: %#v", obj)
+		return false, device, err
+	}
+	newDevice := obj.(*api.Device)
+	// Apply default values and validate the device.
+	//if err = defaultFn(newDevice); err != nil {
+	//       return true, device, err
+	//}
+	//if errs := validation.ValidateDevice(newDevice); len(errs) > 0 {
+	//      err = fmt.Errorf("invalid device: %v", errs)
+	//      return true, device, err
+	//}
+	v1Device := &v1.Device{}
+	if err := v1.Convert_api_Device_To_v1_Device(newDevice, v1Device, nil); err != nil {
+		return true, nil, err
+	}
+	return true, v1Device, nil
 }
