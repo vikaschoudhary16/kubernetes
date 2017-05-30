@@ -1,0 +1,14 @@
+--- 
+kind: ResourceClass
+metadata: 
+  name: my.rc2
+spec: 
+  resourceSelector: 
+    - 
+      matchExpressions: 
+        - 
+          key: "Type"
+          operator: "In"
+          values: 
+            - "nvidia-gpu"
+

@@ -1441,9 +1441,8 @@ type ResourceClass struct {
 
 // Spec defines resources required
 type ResourceClassSpec struct {
-	// AllRequired means all device selectors must satisfy
-	// +optional
-	AllRequired []DeviceSelector `json:"required,omitempty" protobuf:"bytes,1,opt,name=required"`
+	// Resource Selector selects resources
+	ResourceSelector []ResourcePropertySelector `json:"resourceSelector" protobuf:"bytes,1,rep,name=resourceSelector"`
 }
 
 // ResourceClassStatus is information about the current status of a resource class.
@@ -3336,26 +3335,26 @@ type Device struct {
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 }
 
-type OperatorType string
+type ResourceSelectorOperator NodeSelectorOperator
 
-// These are the supported operators on device properties
-const (
-	// In operator means value must be among provided values
-	InOperator OperatorType = "In"
-	// In operator means value must be greater than provided value
-	GreatThanOperator OperatorType = "Gt"
-	// In operator means value must be less than provided value
-	LessThanOperator OperatorType = "Lt"
-	// Eq operator means value must be Equal to provided value
-	EqualToOperator OperatorType = "Eq"
-)
-
-// Device Selector verifies if result matches the value if Operator applied on the property key value
-type DeviceSelector struct {
-	// Example, version, type etc.
-	Property map[string]string `json:"property" protobuf:"bytes,1,rep,name=property"`
+// A resource selector requirement is a selector that contains values, a key, and an operator
+// that relates the key and values
+type ResourceSelectorRequirement struct {
+	// The label key that the selector applies to
+	// +patchMergeKey=key
+	// +patchStrategy=merge
+	Key string `json:"key" patchStrategy:"merge" patchMergeKey:"key" protobuf:"bytes,1,opt,name=key"`
+	// Example 0.1, intel etc
+	// +optional
+	Values []string `json:"values,omitempty" protobuf:"bytes,2,rep,name=values"`
 	// operator
-	PropertyOperator OperatorType `json:"operator" protobuf:"bytes,2,name=operator"`
+	Operator ResourceSelectorOperator `json:"operator" protobuf:"bytes,3,opt,name=operator,casttype=ResourceSelectorOperator"`
+}
+
+// A null or empty selector matches no resources
+type ResourcePropertySelector struct {
+	// A list of resource/device selector requirements. ANDed from each ResourceSelectorRequirement
+	MatchExpressions []ResourceSelectorRequirement `json:"matchExpressions" protobuf:"bytes,1,rep,name=matchExpressions"`
 }
 
 // NodeStatus is information about the current status of a node.

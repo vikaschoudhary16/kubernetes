@@ -201,7 +201,9 @@ func ReadDeviceFiles(path string) ([]*v1.Device, error) {
 }
 
 func ExtractDevicesFromDir(name string) ([]*v1.Device, error) {
+	glog.V(1).Infof("ExtractDevicesFromDir: Entered for dir  %v", name)
 	dirents, err := filepath.Glob(filepath.Join(name, "[^.]*"))
+	glog.V(1).Infof("ExtractDevicesFromDir: dirents  %v", dirents)
 	if err != nil {
 		return nil, fmt.Errorf("glob failed: %v", err)
 	}
@@ -237,7 +239,7 @@ func ExtractDevicesFromDir(name string) ([]*v1.Device, error) {
 }
 
 func ExtractDeviceFromFile(filename string) (device *v1.Device, err error) {
-	glog.V(3).Infof("Reading config file %q", filename)
+	glog.V(3).Infof("Reading config file %v", filename)
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -253,6 +255,7 @@ func ExtractDeviceFromFile(filename string) (device *v1.Device, err error) {
 	//defaultFn := func(device *api.Device) error {
 	//      return s.applyDefaults(device, filename)
 	//}
+	glog.V(3).Infof("Going to decode device data %v", data)
 
 	parsed, device, deviceErr := TryDecodeSingleDevice(data)
 	if parsed {
@@ -268,6 +271,8 @@ func ExtractDeviceFromFile(filename string) (device *v1.Device, err error) {
 
 func TryDecodeSingleDevice(data []byte) (parsed bool, device *v1.Device, err error) {
 	// JSON is valid YAML, so this should work for everything.
+	glog.V(3).Infof("TryDecodeSingleDevice Entered data:%v", data)
+
 	json, err := utilyaml.ToJSON(data)
 	if err != nil {
 		return false, nil, err
@@ -276,6 +281,7 @@ func TryDecodeSingleDevice(data []byte) (parsed bool, device *v1.Device, err err
 	if err != nil {
 		return false, device, err
 	}
+	glog.V(3).Infof("TryDecodeSingleDevice: getting api Device")
 	// Check whether the object could be converted to single Device.
 	if _, ok := obj.(*api.Device); !ok {
 		err = fmt.Errorf("invalid device: %#v", obj)
@@ -290,9 +296,11 @@ func TryDecodeSingleDevice(data []byte) (parsed bool, device *v1.Device, err err
 	//      err = fmt.Errorf("invalid device: %v", errs)
 	//      return true, device, err
 	//}
+	glog.V(3).Infof("TryDecodeSingleDevice: getting v1 api Device")
 	v1Device := &v1.Device{}
 	if err := v1.Convert_api_Device_To_v1_Device(newDevice, v1Device, nil); err != nil {
 		return true, nil, err
 	}
+	glog.V(3).Infof("TryDecodeSingleDevice: v1 api Device:%v", *v1Device)
 	return true, v1Device, nil
 }

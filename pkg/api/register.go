@@ -96,6 +96,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LimitRangeList{},
 		&ResourceClass{},
 		&ResourceClassList{},
+		&Device{},
 		&ResourceQuota{},
 		&ResourceQuotaList{},
 		&Namespace{},

@@ -1350,10 +1350,10 @@ type ResourceClassStatus struct {
 	Allocatable int32
 }
 
+// Spec dictates features and properties of devices targeted by Resource Class
 type ResourceClassSpec struct {
-	// AllRequired means all device selectors must satisfy
-	// +optional
-	AllRequired []DeviceSelector
+	// ResourceSelector  selects resources. ORed from each selector
+	ResourceSelector []ResourcePropertySelector
 }
 
 // +genclient=true
@@ -2907,25 +2907,23 @@ type Device struct {
 	//Type of the device
 }
 
-type OperatorType string
+type ResourceSelectorOperator NodeSelectorOperator
 
-// These are the supported operators on device properties
-const (
-	// In operator means value must be among provided values
-	InOperator OperatorType = "In"
-	// In operator means value must be greater than provided value
-	GreatThanOperator OperatorType = "Gt"
-	// In operator means value must be less than provided value
-	LessThanOperator OperatorType = "Lt"
-	// Eq operator means value must be Equal to provided value
-	EqualToOperator OperatorType = "Eq"
-)
-
-type DeviceSelector struct {
-	// Example, version, type etc.
-	Property map[string]string
+// A resource selector requirement is a selector that contains values, a key, and an operator
+// that relates the key and values
+type ResourceSelectorRequirement struct {
+	// The label key that the selector applies to
+	Key string
+	// Example 0.1, intel etc
+	Values []string
 	// operator
-	PropertyOperator OperatorType
+	Operator ResourceSelectorOperator
+}
+
+// A null or empty selector matches no resources
+type ResourcePropertySelector struct {
+	// A list of resource/device selector requirements
+	MatchExpressions []ResourceSelectorRequirement
 }
 
 // NodeStatus is information about the current status of a node.
