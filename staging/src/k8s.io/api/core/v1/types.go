@@ -1765,50 +1765,6 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
 }
 
-// +nonNamespaced=true
-// +genclient=true
-
-// ResourceClass is a resource class
-type ResourceClass struct {
-	metav1.TypeMeta `json:",inline"`
-	// Standard object's metadata.
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	// Spec defines resources required
-	// +optional
-	Spec ResourceClassSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	// Most recently observed status of the resource class.
-	// Populated by the system.
-	// Read-only
-	// +optional
-	Status ResourceClassStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-// Spec defines resources required
-type ResourceClassSpec struct {
-	// Resource Selector selects resources
-	ResourceSelector []ResourcePropertySelector `json:"resourceSelector" protobuf:"bytes,1,rep,name=resourceSelector"`
-	// +optional
-	SubResourcesCount int32 `json:"subResourcesCount" protobuf:"varint,2,opt,name=subResourcesCount"`
-}
-
-// ResourceClassStatus  is information about the current status of a resource class
-type ResourceClassStatus struct {
-	Allocatable int32 `json:"allocatable" protobuf:"varint,1,name=allocatable"`
-	Request     int32 `json:"request" protobuf:"varint,2,name=request"`
-}
-
-// ResourceClassList is list of rcs
-type ResourceClassList struct {
-	metav1.TypeMeta `json:",inline"`
-	// Standard list metadata.
-	// +optional
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	// List of nodes
-	Items []ResourceClass `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
 	// Version of the schema the FieldPath is written in terms of, defaults to "v1".
@@ -3945,60 +3901,6 @@ type NodeConfigStatus struct {
 	Error string `json:"error,omitempty" protobuf:"bytes,4,opt,name=error"`
 }
 
-type DeviceSubResources struct {
-	// Name of the Device
-	Name string `json:"name" protobuf:"varint,1,name=name"`
-	// Count of devices
-	Quantity int32 `json:"quantity" protobuf:"varint,2,name=quantity"`
-}
-
-// +nonNamespaced=true
-
-// ResourceClass is a resource class
-// Device is a physical or logical device
-type Device struct {
-	metav1.TypeMeta `json:",inline"`
-	// Standard object's metadata.
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	// count of such devices on node
-	Quantity int32 `json:"quantity" protobuf:"varint,2,name=quantity"`
-	// Device can be a group of several other devices
-	// +optional
-	SubResources DeviceSubResources `json:"SubResources" protobuf:"bytes,3,opt,name=SubResources,casttype=DeviceSubResources"`
-}
-
-type ResourceSelectorOperator string
-
-const (
-	ResourceSelectorOpIn           ResourceSelectorOperator = "In"
-	ResourceSelectorOpNotIn        ResourceSelectorOperator = "NotIn"
-	ResourceSelectorOpExists       ResourceSelectorOperator = "Exists"
-	ResourceSelectorOpDoesNotExist ResourceSelectorOperator = "DoesNotExist"
-	ResourceSelectorOpGt           ResourceSelectorOperator = "Gt"
-	ResourceSelectorOpLt           ResourceSelectorOperator = "Lt"
-)
-
-// A resource selector requirement is a selector that contains values, a key, and an operator
-// that relates the key and values
-type ResourceSelectorRequirement struct {
-	// The label key that the selector applies to
-	// +patchMergeKey=key
-	// +patchStrategy=merge
-	Key string `json:"key" patchStrategy:"merge" patchMergeKey:"key" protobuf:"bytes,1,opt,name=key"`
-	// Example 0.1, intel etc
-	// +optional
-	Values []string `json:"values,omitempty" protobuf:"bytes,2,rep,name=values"`
-	// operator
-	Operator ResourceSelectorOperator `json:"operator" protobuf:"bytes,3,opt,name=operator,casttype=ResourceSelectorOperator"`
-}
-
-// A null or empty selector matches no resources
-type ResourcePropertySelector struct {
-	// A list of resource/device selector requirements. ANDed from each ResourceSelectorRequirement
-	MatchExpressions []ResourceSelectorRequirement `json:"matchExpressions" protobuf:"bytes,1,rep,name=matchExpressions"`
-}
-
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
 	// Capacity represents the total resources of a node.
@@ -4046,12 +3948,6 @@ type NodeStatus struct {
 	// Status of the config assigned to the node via the dynamic Kubelet config feature.
 	// +optional
 	Config *NodeConfigStatus `json:"config,omitempty" protobuf:"bytes,11,opt,name=config"`
-	// Total devices that are attached to the node.
-	// +optional
-	CapacityDevices []Device `json:"deviceCapacity,omitempty" protobuf:"bytes,11,rep,name=deviceCapacity"`
-	// Allocatable devices that are attached to the node.
-	// +optional
-	AllocatableDevices []Device `json:"deviceAllocatable,omitempty" protobuf:"bytes,12,rep,name=deviceAllocatable"`
 }
 
 type UniqueVolumeName string
