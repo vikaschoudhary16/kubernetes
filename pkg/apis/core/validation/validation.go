@@ -4113,6 +4113,13 @@ func ValidateResourceClassUpdate(rClass, oldResClass *api.ResourceClass) field.E
 	//oldResClass.Status.Request = rClass.Status.Request
 	return allErrs
 }
+func ValidateResourceClassUpdate(rClass, oldResClass *api.ResourceClass) field.ErrorList {
+	//TODO(vikasc): Add implementation
+	var allErrs field.ErrorList
+	//oldResClass.Status.Allocatable = rClass.Status.Allocatable
+	//oldResClass.Status.Request = rClass.Status.Request
+	return allErrs
+}
 
 // ValidateNodeResources is used to make sure a node has valid capacity and allocatable values.
 func ValidateNodeResources(node *core.Node) field.ErrorList {

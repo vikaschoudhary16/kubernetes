@@ -216,6 +216,14 @@ func (kl *Kubelet) getNodeAnyWay() (*v1.Node, error) {
 	return kl.initialNode()
 }
 
+func (kl *Kubelet) listResClassesAnyWay() ([]*v1.ResourceClass, error) {
+	fmt.Printf("\n %s Entered \n", file_line())
+	if rcList, err := kl.resClassInfo.ListResClasses(); err == nil {
+		return rcList, nil
+	}
+	return nil, nil
+}
+
 // GetNodeConfig returns the container manager node config.
 func (kl *Kubelet) GetNodeConfig() cm.NodeConfig {
 	return kl.containerManager.GetNodeConfig()

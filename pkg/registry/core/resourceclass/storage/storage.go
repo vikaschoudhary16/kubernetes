@@ -77,7 +77,7 @@ func NewStorage(optsGetter generic.RESTOptionsGetter) (*REST, *StatusREST) {
 		WatchCacheSize:    cachesize.GetWatchCacheSizeByResource("resourceclasses"),
 
 		CreateStrategy: resourceclass.Strategy,
-		//UpdateStrategy: resourceclass.Strategy,
+		UpdateStrategy: resourceclass.Strategy,
 		DeleteStrategy: resourceclass.Strategy,
 		ExportStrategy: resourceclass.Strategy,
 	}
@@ -87,7 +87,7 @@ func NewStorage(optsGetter generic.RESTOptionsGetter) (*REST, *StatusREST) {
 	}
 
 	statusStore := *store
-	//statusStore.UpdateStrategy = resourceclass.StatusStrategy
+	statusStore.UpdateStrategy = resourceclass.StatusStrategy
 
 	return &REST{Store: store}, &StatusREST{store: &statusStore}
 }

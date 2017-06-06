@@ -219,6 +219,40 @@ func containsAccessMode(modes []v1.PersistentVolumeAccessMode, mode v1.Persisten
 
 // NodeSelectorRequirementsAsSelector converts the []NodeSelectorRequirement api type into a struct that implements
 // labels.Selector.
+func ResourceSelectorRequirementsAsSelector(nsm []v1.ResourceSelectorRequirement) (labels.Selector, error) {
+	if len(nsm) == 0 {
+		return labels.Nothing(), nil
+	}
+	selector := labels.NewSelector()
+	for _, expr := range nsm {
+		var op selection.Operator
+		switch expr.Operator {
+		case v1.ResourceSelectorOpIn:
+			op = selection.In
+		case v1.ResourceSelectorOpNotIn:
+			op = selection.NotIn
+		case v1.ResourceSelectorOpExists:
+			op = selection.Exists
+		case v1.ResourceSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		case v1.ResourceSelectorOpGt:
+			op = selection.GreaterThan
+		case v1.ResourceSelectorOpLt:
+			op = selection.LessThan
+		default:
+			return nil, fmt.Errorf("%q is not a valid node selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, expr.Values)
+		if err != nil {
+			return nil, err
+		}
+		selector = selector.Add(*r)
+	}
+	return selector, nil
+}
+
+// NodeSelectorRequirementsAsSelector converts the []NodeSelectorRequirement api type into a struct that implements
+// labels.Selector.
 func NodeSelectorRequirementsAsSelector(nsm []v1.NodeSelectorRequirement) (labels.Selector, error) {
 	if len(nsm) == 0 {
 		return labels.Nothing(), nil

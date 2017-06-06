@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -29,6 +30,8 @@ import (
 
 	"github.com/golang/glog"
 	policy "k8s.io/api/policy/v1beta1"
+	resapi "k8s.io/kubernetes/pkg/apis/computeresources"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 )
 
 var (
@@ -46,9 +49,10 @@ func New(ttl time.Duration, stop <-chan struct{}) Cache {
 }
 
 type schedulerCache struct {
-	stop   <-chan struct{}
-	ttl    time.Duration
-	period time.Duration
+	kubeClient clientset.Interface
+	stop       <-chan struct{}
+	ttl        time.Duration
+	period     time.Duration
 
 	// This mutex guards all fields within this cache struct.
 	mu sync.Mutex
@@ -56,9 +60,10 @@ type schedulerCache struct {
 	// The key could further be used to get an entry in podStates.
 	assumedPods map[string]bool
 	// a map from pod key to podState.
-	podStates map[string]*podState
-	nodes     map[string]*NodeInfo
-	pdbs      map[string]*policy.PodDisruptionBudget
+	podStates       map[string]*podState
+	nodes           map[string]*NodeInfo
+	pdbs            map[string]*policy.PodDisruptionBudget
+	resourceClasses map[string]*resapi.ResourceClassInfo
 }
 
 type podState struct {
@@ -75,10 +80,11 @@ func newSchedulerCache(ttl, period time.Duration, stop <-chan struct{}) *schedul
 		period: period,
 		stop:   stop,
 
-		nodes:       make(map[string]*NodeInfo),
-		assumedPods: make(map[string]bool),
-		podStates:   make(map[string]*podState),
-		pdbs:        make(map[string]*policy.PodDisruptionBudget),
+		nodes:           make(map[string]*NodeInfo),
+		assumedPods:     make(map[string]bool),
+		podStates:       make(map[string]*podState),
+		pdbs:            make(map[string]*policy.PodDisruptionBudget),
+		resourceClasses: make(map[string]*resapi.ResourceClassInfo),
 	}
 }
 
@@ -236,8 +242,29 @@ func (cache *schedulerCache) addPod(pod *v1.Pod) {
 	if !ok {
 		n = NewNodeInfo()
 		cache.nodes[pod.Spec.NodeName] = n
+		n.kubeClient = cache.kubeClient
 	}
 	n.AddPod(pod)
+	cache.onAddPodHandleResClasses(pod)
+}
+
+func (cache *schedulerCache) onAddPodHandleResClasses(pod *v1.Pod) {
+	n, ok := cache.nodes[pod.Spec.NodeName]
+	if !ok {
+		return
+	}
+	deviceMappings, ResourceClassRequestMappings, _ := n.OnAddUpdateResClassToDeviceMappingForPod(pod)
+	for _, mapping := range deviceMappings {
+		annotKey := v1.ResClassPodAnnotationKeyPrefix + "_" + mapping.rClassName + "_" + mapping.deviceName
+		n.patchPodWithDeviceAnnotation(pod, annotKey, mapping.deviceQuantity)
+	}
+	if ResourceClassRequestMappings != nil {
+		for rClassName, request := range *ResourceClassRequestMappings {
+			cacheRCInfo := cache.resourceClasses[rClassName]
+			cacheRCInfo.Requested += request
+			n.patchResourceClassStatus(cacheRCInfo.resClass, cacheRCInfo.Allocatable, cacheRCInfo.Requested)
+		}
+	}
 }
 
 // Assumes that lock is already acquired.
@@ -255,12 +282,30 @@ func (cache *schedulerCache) removePod(pod *v1.Pod) error {
 	if err := n.RemovePod(pod); err != nil {
 		return err
 	}
+	err := cache.onRemovePodHandleResClasses(pod)
+	if err != nil {
+		return err
+	}
+
 	if len(n.pods) == 0 && n.node == nil {
 		delete(cache.nodes, pod.Spec.NodeName)
 	}
 	return nil
 }
 
+func (cache *schedulerCache) onRemovePodHandleResClasses(pod *v1.Pod) error {
+	n, ok := cache.nodes[pod.Spec.NodeName]
+	if !ok {
+		return errors.New(fmt.Sprintf("Node %v not found in cache", pod.Spec.NodeName))
+	}
+	ResourceClassRequestMappings, err := n.OnRemoveUpdateResClassToDeviceMappingForPod(pod)
+	for rClassName, request := range *ResourceClassRequestMappings {
+		cacheRCInfo := cache.resourceClasses[rClassName]
+		cacheRCInfo.Requested -= request
+		n.patchResourceClassStatus(cacheRCInfo.resClass, cacheRCInfo.Allocatable, cacheRCInfo.Requested)
+	}
+	return err
+}
 func (cache *schedulerCache) AddPod(pod *v1.Pod) error {
 	key, err := getPodKey(pod)
 	if err != nil {
@@ -386,14 +431,74 @@ func (cache *schedulerCache) GetPod(pod *v1.Pod) (*v1.Pod, error) {
 	return podState.pod, nil
 }
 
+func (cache *schedulerCache) AddResourceClass(rClass *resapi.ResourceClass) error {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	var err error
+	//fmt.Println(file_line())
+	fmt.Printf("%s schedulerCache: %p,  NumNodes=> %d\n", file_line(), cache, len(cache.nodes))
+	_, ok := cache.resourceClasses[rClass.Name]
+	if !ok {
+		rc := &ResourceClassInfo{}
+		cache.resourceClasses[rClass.Name] = rc
+		rc.resClass = rClass
+		for _, info := range cache.nodes {
+			fmt.Printf("\n%s cache.nodes %+v\n", file_line(), cache.nodes)
+			rcPerNodeInfo, err := info.AddResourceClass(rClass, info.node)
+			if err != nil {
+				break
+			} else if rcPerNodeInfo == nil {
+				continue
+			} else {
+				rc.Allocatable += rcPerNodeInfo.Allocatable
+				rc.Requested += rcPerNodeInfo.Requested
+			}
+			info.patchResourceClassStatus(rc.resClass, rc.Allocatable, rc.Requested)
+		}
+
+	}
+	return err
+}
+
+func (cache *schedulerCache) AddClient(client clientset.Interface) error {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	cache.kubeClient = client
+	return nil
+}
+
 func (cache *schedulerCache) AddNode(node *v1.Node) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
+	fmt.Printf("\n%s cache.nodes %+v\n", file_line(), cache.nodes)
 	n, ok := cache.nodes[node.Name]
 	if !ok {
 		n = NewNodeInfo()
 		cache.nodes[node.Name] = n
+		n.kubeClient = cache.kubeClient
+		//fmt.Printf("\n%s cache.rClasses %+v\n", file_line(), cache.resourceClasses)
+		//for _, rc := range cache.resourceClasses {
+		//	rcPerNodeInfo, err := n.AddResourceClass(rc.resClass, node)
+		//	if err != nil {
+		//		break
+		///	} else {
+		//		rc.Allocatable += rcPerNodeInfo.Allocatable
+		///		rc.Requested += rcPerNodeInfo.Requested
+		//		n.patchResourceClassStatus(rc.resClass, rc.Allocatable, rc.Requested)
+		//	}
+		//}
+	}
+	fmt.Printf("\n%s cache.rClasses %+v\n", file_line(), cache.resourceClasses)
+	for _, rc := range cache.resourceClasses {
+		rcPerNodeInfo, err := n.AddResourceClass(rc.resClass, node)
+		if err != nil {
+			break
+		} else {
+			rc.Allocatable += rcPerNodeInfo.Allocatable
+			rc.Requested += rcPerNodeInfo.Requested
+			n.patchResourceClassStatus(rc.resClass, rc.Allocatable, rc.Requested)
+		}
 	}
 	return n.SetNode(node)
 }
@@ -406,6 +511,7 @@ func (cache *schedulerCache) UpdateNode(oldNode, newNode *v1.Node) error {
 	if !ok {
 		n = NewNodeInfo()
 		cache.nodes[newNode.Name] = n
+		n.kubeClient = cache.kubeClient
 	}
 	return n.SetNode(newNode)
 }

@@ -285,6 +285,8 @@ func NewSchedulerConfig(s schedulerserverconfig.CompletedConfig) (*scheduler.Con
 	if utilfeature.DefaultFeatureGate.Enabled(features.VolumeScheduling) {
 		storageClassInformer = s.InformerFactory.Storage().V1().StorageClasses()
 	}
+	var resClassInformer resinformers.ResourceClassInformer
+	resClassInformer = s.InformerFactory.ComputeResources().V1alpha1().ResourceClasses()
 
 	// Set up the configurator which can create schedulers from configs.
 	configurator := factory.NewConfigFactory(
@@ -300,6 +302,7 @@ func NewSchedulerConfig(s schedulerserverconfig.CompletedConfig) (*scheduler.Con
 		s.InformerFactory.Core().V1().Services(),
 		s.InformerFactory.Policy().V1beta1().PodDisruptionBudgets(),
 		storageClassInformer,
+		resClassInformer,
 		s.ComponentConfig.HardPodAffinitySymmetricWeight,
 		utilfeature.DefaultFeatureGate.Enabled(features.EnableEquivalenceClassCache),
 		s.ComponentConfig.DisablePreemption,

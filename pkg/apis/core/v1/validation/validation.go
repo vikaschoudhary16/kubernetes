@@ -48,7 +48,8 @@ func ValidateResourceRequirements(requirements *v1.ResourceRequirements, fldPath
 	for resourceName, quantity := range requirements.Requests {
 		fldPath := reqPath.Key(string(resourceName))
 		// Validate resource name.
-		allErrs = append(allErrs, validateContainerResourceName(string(resourceName), fldPath)...)
+		//TODO(vikasc): commenting resource name validation because need to add handling for resource class name validation. One way, though very restrictive, could be to prefix rClass name with special string like "res-class-". For now switching off validation.
+		//allErrs = append(allErrs, validateContainerResourceName(string(resourceName), fldPath)...)
 		// Validate resource quantity.
 		allErrs = append(allErrs, ValidateResourceQuantityValue(string(resourceName), quantity, fldPath)...)
 

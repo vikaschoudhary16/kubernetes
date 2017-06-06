@@ -37,6 +37,10 @@ const (
 	// in the Annotations of a Node.
 	TaintsAnnotationKey string = "scheduler.alpha.kubernetes.io/taints"
 
+	// ResClassPodAnnotationKeyPrefix represents the key of a device allocated
+	// to one container of a pod.
+	ResClassPodAnnotationKeyPrefix string = "scheduler.alpha.kubernetes.io/resClass"
+
 	// SeccompPodAnnotationKey represents the key of a seccomp profile applied
 	// to all containers of a pod.
 	SeccompPodAnnotationKey string = "seccomp.security.alpha.kubernetes.io/pod"
