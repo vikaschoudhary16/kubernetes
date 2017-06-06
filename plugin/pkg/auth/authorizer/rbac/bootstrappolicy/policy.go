@@ -106,6 +106,7 @@ func NodeRules() []rbac.PolicyRule {
 
 		// TODO: restrict to pods scheduled on the bound node once field selectors are supported by list/watch authorization
 		rbac.NewRule(Read...).Groups(legacyGroup).Resources("pods").RuleOrDie(),
+		rbac.NewRule(Read...).Groups(legacyGroup).Resources("resourceclasses").RuleOrDie(),
 
 		// Needed for the node to create/delete mirror pods.
 		// Use the NodeRestriction admission plugin to limit a node to creating/deleting mirror pods bound to itself.
@@ -327,12 +328,15 @@ func ClusterRoles() []rbac.ClusterRole {
 				rbac.NewRule(Read...).Groups(legacyGroup).Resources("nodes", "pods").RuleOrDie(),
 				rbac.NewRule("create").Groups(legacyGroup).Resources("pods/binding", "bindings").RuleOrDie(),
 				rbac.NewRule("update").Groups(legacyGroup).Resources("pods/status").RuleOrDie(),
+				rbac.NewRule("patch").Groups(legacyGroup).Resources("pods").RuleOrDie(),
 				// things that select pods
 				rbac.NewRule(Read...).Groups(legacyGroup).Resources("services", "replicationcontrollers").RuleOrDie(),
 				rbac.NewRule(Read...).Groups(extensionsGroup).Resources("replicasets").RuleOrDie(),
 				rbac.NewRule(Read...).Groups(appsGroup).Resources("statefulsets").RuleOrDie(),
 				// things that pods use
 				rbac.NewRule(Read...).Groups(legacyGroup).Resources("persistentvolumeclaims", "persistentvolumes").RuleOrDie(),
+				rbac.NewRule("get", "update", "patch", "delete", "list", "watch").Groups(legacyGroup).Resources("resourceclasses").RuleOrDie(),
+				rbac.NewRule("update", "patch").Groups(legacyGroup).Resources("resourceclasses/status").RuleOrDie(),
 			},
 		},
 		{

@@ -78,17 +78,13 @@ func (resourceclassStrategy) Canonicalize(obj runtime.Object) {
 }
 
 // ValidateUpdate is the default update validation for an end user.
-//func (resourceclassStrategy) ValidateUpdate(ctx genericapirequest.Context, obj, old runtime.Object) field.ErrorList {
-//	errorList := validation.ValidateResourceClass(obj.(*api.ResourceClass))
-//	return append(errorList, validation.ValidateResourceClassUpdate(obj.(*api.ResourceClass), old.(*api.ResourceClass))...)
-//}
-
-func (resourceclassStrategy) AllowUnconditionalUpdate() bool {
-	return true
+func (resourceclassStrategy) ValidateUpdate(ctx genericapirequest.Context, obj, old runtime.Object) field.ErrorList {
+	errorList := validation.ValidateResourceClass(obj.(*api.ResourceClass))
+	return append(errorList, validation.ValidateResourceClassUpdate(obj.(*api.ResourceClass), old.(*api.ResourceClass))...)
 }
 
 func (ns resourceclassStrategy) Export(ctx genericapirequest.Context, obj runtime.Object, exact bool) error {
-	n, ok := obj.(*api.ResourceClass)
+	_, ok := obj.(*api.ResourceClass)
 	if !ok {
 		// unexpected programmer error
 		return fmt.Errorf("unexpected object: %v", obj)
@@ -99,7 +95,6 @@ func (ns resourceclassStrategy) Export(ctx genericapirequest.Context, obj runtim
 	}
 	//ResourceClasses are the resources that allow direct status edits, therefore
 	// we clear that without exact so that the resourceclass value can be reused.
-	n.Status = api.ResourceClassStatus{}
 	return nil
 }
 
@@ -120,12 +115,12 @@ func (resourceclassStatusStrategy) PrepareForUpdate(ctx genericapirequest.Contex
 	newResourceClass.Spec = oldResourceClass.Spec
 }
 
-//func (resourceclassStatusStrategy) ValidateUpdate(ctx genericapirequest.Context, obj, old runtime.Object) field.ErrorList {
-//	return validation.ValidateResourceClassUpdate(obj.(*api.ResourceClass), old.(*api.ResourceClass))
-//}
-
 // Canonicalize normalizes the object after validation.
 func (resourceclassStatusStrategy) Canonicalize(obj runtime.Object) {
+}
+
+func (resourceclassStrategy) AllowUnconditionalUpdate() bool {
+	return true
 }
 
 // ResourceGetter is an interface for retrieving resources by ResourceLocation.
@@ -135,16 +130,16 @@ type ResourceGetter interface {
 
 // ResourceClassToSelectableFields returns a field set that represents the object.
 func ResourceClassToSelectableFields(resourceclass *api.ResourceClass) fields.Set {
-	return generic.ObjectMetaFieldsSet(&resourceclass.ObjectMeta, true)
+	return generic.ObjectMetaFieldsSet(&resourceclass.ObjectMeta, false)
 }
 
 // GetAttrs returns labels and fields of a given object for filtering purposes.
-func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
+func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, bool, error) {
 	resourceclassObj, ok := obj.(*api.ResourceClass)
 	if !ok {
-		return nil, nil, fmt.Errorf("not a resourceclass")
+		return nil, nil, false, fmt.Errorf("not a resourceclass")
 	}
-	return labels.Set(resourceclassObj.ObjectMeta.Labels), ResourceClassToSelectableFields(resourceclassObj), nil
+	return labels.Set(resourceclassObj.ObjectMeta.Labels), ResourceClassToSelectableFields(resourceclassObj), resourceclassObj.Initializers != nil, nil
 }
 
 // MatchResourceClass returns a generic matcher for a given label and field selector.

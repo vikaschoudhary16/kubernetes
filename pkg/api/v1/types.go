@@ -1421,8 +1421,9 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
 }
 
-// +genclient=true
 // +nonNamespaced=true
+// +genclient=true
+
 // ResourceClass is a resource class
 type ResourceClass struct {
 	metav1.TypeMeta `json:",inline"`
@@ -1433,8 +1434,9 @@ type ResourceClass struct {
 	// Spec defines resources required
 	// +optional
 	Spec ResourceClassSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-
-	// Status represents the current information about resource class.
+	// Most recently observed status of the resource class.
+	// Populated by the system.
+	// Read-only
 	// +optional
 	Status ResourceClassStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
@@ -1443,20 +1445,16 @@ type ResourceClass struct {
 type ResourceClassSpec struct {
 	// Resource Selector selects resources
 	ResourceSelector []ResourcePropertySelector `json:"resourceSelector" protobuf:"bytes,1,rep,name=resourceSelector"`
+	// +optional
+	SubResourcesCount int32 `json:"subResourcesCount" protobuf:"varint,2,opt,name=subResourcesCount"`
 }
 
-// ResourceClassStatus is information about the current status of a resource class.
+// ResourceClassStatus  is information about the current status of a resource class
 type ResourceClassStatus struct {
-	// Total devices which can satisfy this resource class
-	// +optional
-	Capacity int32 `json:"varint,omitempty" protobuf:"varint,1,opt,name=capacity"`
-	// List of devices which can satisfy this resource class
-	// +optional
-	Allocatable int32 `json:"allocatable,omitempty" protobuf:"varint,2,opt,name=allocatable"`
+	Allocatable int32 `json:"allocatable" protobuf:"varint,1,name=allocatable"`
+	Request     int32 `json:"request" protobuf:"varint,2,name=request"`
 }
 
-// +genclient=true
-// +nonNamespaced=true
 // ResourceClassList is list of rcs
 type ResourceClassList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -3325,7 +3323,15 @@ type NodeSystemInfo struct {
 	Architecture string `json:"architecture" protobuf:"bytes,10,opt,name=architecture"`
 }
 
+type DeviceSubResources struct {
+	// Name of the Device
+	Name string `json:"name" protobuf:"varint,1,name=name"`
+	// Count of devices
+	Quantity int32 `json:"quantity" protobuf:"varint,2,name=quantity"`
+}
+
 // +nonNamespaced=true
+
 // ResourceClass is a resource class
 // Device is a physical or logical device
 type Device struct {
@@ -3333,9 +3339,23 @@ type Device struct {
 	// Standard object's metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	// count of such devices on node
+	Quantity int32 `json:"quantity" protobuf:"varint,2,name=quantity"`
+	// Device can be a group of several other devices
+	// +optional
+	SubResources DeviceSubResources `json:"SubResources" protobuf:"bytes,3,opt,name=SubResources,casttype=DeviceSubResources"`
 }
 
-type ResourceSelectorOperator NodeSelectorOperator
+type ResourceSelectorOperator string
+
+const (
+	ResourceSelectorOpIn           ResourceSelectorOperator = "In"
+	ResourceSelectorOpNotIn        ResourceSelectorOperator = "NotIn"
+	ResourceSelectorOpExists       ResourceSelectorOperator = "Exists"
+	ResourceSelectorOpDoesNotExist ResourceSelectorOperator = "DoesNotExist"
+	ResourceSelectorOpGt           ResourceSelectorOperator = "Gt"
+	ResourceSelectorOpLt           ResourceSelectorOperator = "Lt"
+)
 
 // A resource selector requirement is a selector that contains values, a key, and an operator
 // that relates the key and values

@@ -62,6 +62,10 @@ type NodeInfo interface {
 	GetNodeInfo(nodeID string) (*v1.Node, error)
 }
 
+type ResClassInfo interface {
+	ListResClasses() ([]*v1.ResourceClass, error)
+}
+
 type PersistentVolumeInfo interface {
 	GetPersistentVolumeInfo(pvID string) (*v1.PersistentVolume, error)
 }
@@ -106,6 +110,22 @@ func (c *CachedNodeInfo) GetNodeInfo(id string) (*v1.Node, error) {
 	}
 
 	return node, nil
+}
+
+type CachedResourceClassInfo struct {
+	corelisters.ResourceClassLister
+}
+
+func (c *CachedResourceClassInfo) ListResClasses() ([]*v1.ResourceClass, error) {
+	fmt.Printf("\n%s c %+v \n", file_line(), c)
+	fmt.Printf("\n%s c.List %p \n", file_line(), c.List)
+	allResClasses, err := c.List(labels.Everything())
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving rcList from cache: %v", err)
+	}
+	fmt.Printf("\n%s resclasses %+v\n", file_line(), allResClasses)
+
+	return allResClasses, err
 }
 
 //  Note that predicateMetadata and matchingPodAntiAffinityTerm need to be declared in the same file
@@ -494,13 +514,16 @@ func (c *VolumeZoneChecker) predicate(pod *v1.Pod, meta interface{}, nodeInfo *s
 //     C1:
 //       CPU: 2
 //       Memory: 1G
+//       nvidia-gpu: 2
+//       solarflare-40gig: 1
 //     C2:
 //       CPU: 1
 //       Memory: 1G
 //
-// Result: CPU: 3, Memory: 3G
-func GetResourceRequest(pod *v1.Pod) *schedulercache.Resource {
+// Result: CPU: 3, Memory: 3G, ['nvidia-gpu': 2, 'solarflare-40gig': 1]
+func GetResourceRequest(pod *v1.Pod) (*schedulercache.Resource, *map[string]int32) {
 	result := schedulercache.Resource{}
+	rClasses := make(map[string]int32)
 	for _, container := range pod.Spec.Containers {
 		for rName, rQuantity := range container.Resources.Requests {
 			switch rName {
@@ -515,6 +538,8 @@ func GetResourceRequest(pod *v1.Pod) *schedulercache.Resource {
 			default:
 				if v1helper.IsOpaqueIntResourceName(rName) {
 					result.AddOpaque(rName, rQuantity.Value())
+				} else {
+					rClasses[string(rName)] = int32(rQuantity.Value())
 				}
 			}
 		}
@@ -553,12 +578,18 @@ func GetResourceRequest(pod *v1.Pod) *schedulercache.Resource {
 					value := rQuantity.Value()
 					if value > result.OpaqueIntResources[rName] {
 						result.SetOpaque(rName, value)
+					} else {
+						if quantity, ok := rClasses[string(rName)]; ok {
+							if rQuantity.Value() > int64(quantity) {
+								rClasses[string(rName)] = int32(rQuantity.Value())
+							}
+						}
 					}
 				}
 			}
 		}
 	}
-	return &result
+	return &result, &rClasses
 }
 
 func podName(pod *v1.Pod) string {
@@ -578,17 +609,40 @@ func PodFitsResources(pod *v1.Pod, meta interface{}, nodeInfo *schedulercache.No
 	}
 
 	var podRequest *schedulercache.Resource
+	var rClasses *(map[string]int32)
 	if predicateMeta, ok := meta.(*predicateMetadata); ok {
 		podRequest = predicateMeta.podRequest
+		_, rClasses = GetResourceRequest(pod)
 	} else {
 		// We couldn't parse metadata - fallback to computing it.
-		podRequest = GetResourceRequest(pod)
+		podRequest, rClasses = GetResourceRequest(pod)
 	}
+
+	//resClassRequestMap := GetResourceClassRequest(pod, nodeInfo)
 	if podRequest.MilliCPU == 0 && podRequest.Memory == 0 && podRequest.NvidiaGPU == 0 && len(podRequest.OpaqueIntResources) == 0 {
 		return len(predicateFails) == 0, predicateFails, nil
 	}
 
 	allocatable := nodeInfo.AllocatableResource()
+	if len(*rClasses) > 0 {
+		for name, quantity := range *rClasses {
+			resClasses := nodeInfo.ResClasses()
+			fmt.Printf("\n%s rc_name %s, quantity %d n.rc %+v resClasses %p \n", file_line(), name, quantity, resClasses, resClasses)
+			fmt.Printf("\nresClasses len %v\n", len(resClasses))
+			fmt.Printf("\nresClasses[0] %v\n", resClasses[name])
+			rci, ok := resClasses[name]
+			if !ok {
+				// TODO: pass correct predicate fail. Something like "NoDeviceForRequestedResourceClass"
+				predicateFails = append(predicateFails, NewInsufficientResourceError(v1.ResourceName(name), int64(quantity), 0, 0))
+				break
+			} else {
+				if rci.Requested+quantity > rci.Allocatable {
+					predicateFails = append(predicateFails, NewInsufficientResourceError(v1.ResourceName(name), int64(quantity), int64(rci.Requested), int64(rci.Allocatable)))
+					break
+				}
+			}
+		}
+	}
 	if allocatable.MilliCPU < podRequest.MilliCPU+nodeInfo.RequestedResource().MilliCPU {
 		predicateFails = append(predicateFails, NewInsufficientResourceError(v1.ResourceCPU, podRequest.MilliCPU, nodeInfo.RequestedResource().MilliCPU, allocatable.MilliCPU))
 	}

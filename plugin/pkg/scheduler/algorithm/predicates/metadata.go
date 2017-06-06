@@ -45,10 +45,11 @@ func (pfactory *PredicateMetadataFactory) GetMetadata(pod *v1.Pod, nodeNameToInf
 	if err != nil {
 		return nil
 	}
+	resReq, _ := GetResourceRequest(pod)
 	predicateMetadata := &predicateMetadata{
 		pod:                       pod,
 		podBestEffort:             isPodBestEffort(pod),
-		podRequest:                GetResourceRequest(pod),
+		podRequest:                resReq,
 		podPorts:                  schedutil.GetUsedPorts(pod),
 		matchingAntiAffinityTerms: matchingTerms,
 	}

@@ -19,6 +19,7 @@ package schedulercache
 import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 )
 
 // Cache collects pods' information and provides node-level aggregated information.
@@ -80,6 +81,9 @@ type Cache interface {
 	// AddNode adds overall information about node.
 	AddNode(node *v1.Node) error
 
+	// AddResourceClass adds overall information about resource class.
+	AddResourceClass(rClass *v1.ResourceClass) error
+
 	// UpdateNode updates overall information about node.
 	UpdateNode(oldNode, newNode *v1.Node) error
 
@@ -93,4 +97,5 @@ type Cache interface {
 
 	// List lists all cached pods (including assumed ones).
 	List(labels.Selector) ([]*v1.Pod, error)
+	AddClient(client clientset.Interface) error
 }

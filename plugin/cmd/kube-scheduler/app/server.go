@@ -87,6 +87,7 @@ func Run(s *options.SchedulerServer) error {
 		informerFactory.Extensions().V1beta1().ReplicaSets(),
 		informerFactory.Apps().V1beta1().StatefulSets(),
 		informerFactory.Core().V1().Services(),
+		informerFactory.Core().V1().ResourceClasses(),
 		recorder,
 	)
 	if err != nil {

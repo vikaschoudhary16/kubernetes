@@ -469,7 +469,6 @@ func (e *Store) Update(ctx genericapirequest.Context, name string, objInfo rest.
 	if err != nil {
 		return nil, false, err
 	}
-
 	var (
 		creatingObj runtime.Object
 		creating    = false

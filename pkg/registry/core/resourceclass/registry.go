@@ -55,8 +55,8 @@ func (s *storage) ListResourceClasss(ctx genericapirequest.Context, options *met
 	return obj.(*api.ResourceClassList), nil
 }
 
-func (s *storage) CreateResourceClass(ctx genericapirequest.Context, node *api.ResourceClass) error {
-	_, err := s.Create(ctx, node)
+func (s *storage) CreateResourceClass(ctx genericapirequest.Context, resClass *api.ResourceClass) error {
+	_, err := s.Create(ctx, resClass, false)
 	return err
 }
 

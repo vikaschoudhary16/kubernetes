@@ -3216,6 +3216,13 @@ func ValidateNode(node *api.Node) field.ErrorList {
 	// TODO(rjnagal): Ignore PodCIDR till its completely implemented.
 	return allErrs
 }
+func ValidateResourceClassUpdate(rClass, oldResClass *api.ResourceClass) field.ErrorList {
+	//TODO(vikasc): Add implementation
+	var allErrs field.ErrorList
+	//oldResClass.Status.Allocatable = rClass.Status.Allocatable
+	//oldResClass.Status.Request = rClass.Status.Request
+	return allErrs
+}
 
 // ValidateNodeUpdate tests to make sure a node update can be applied.  Modifies oldNode.
 func ValidateNodeUpdate(node, oldNode *api.Node) field.ErrorList {
@@ -3656,7 +3663,7 @@ func ValidateResourceRequirements(requirements *api.ResourceRequirements, fldPat
 	for resourceName, quantity := range requirements.Requests {
 		fldPath := reqPath.Key(string(resourceName))
 		// Validate resource name.
-		allErrs = append(allErrs, validateContainerResourceName(string(resourceName), fldPath)...)
+		//allErrs = append(allErrs, validateContainerResourceName(string(resourceName), fldPath)...)
 		// Validate resource quantity.
 		allErrs = append(allErrs, ValidateResourceQuantityValue(string(resourceName), quantity, fldPath)...)
 	}

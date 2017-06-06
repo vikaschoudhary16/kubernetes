@@ -1325,8 +1325,10 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector
 }
 
-// +genclient=true
 // +nonNamespaced=true
+// +genclient=true
+
+// ResourceClass
 type ResourceClass struct {
 	metav1.TypeMeta
 	// +optional
@@ -1335,29 +1337,24 @@ type ResourceClass struct {
 	// Spec defines resources required
 	// +optional
 	Spec ResourceClassSpec
-
-	// Status represents the current information about resource class
 	// +optional
 	Status ResourceClassStatus
 }
 
 type ResourceClassStatus struct {
-	// Total devices which can satisfy this resource class
-	// +optional
-	Capacity int32
-	// List of devices which can satisfy this resource class
-	// +optional
 	Allocatable int32
+	Request     int32
 }
 
 // Spec dictates features and properties of devices targeted by Resource Class
 type ResourceClassSpec struct {
 	// ResourceSelector  selects resources. ORed from each selector
 	ResourceSelector []ResourcePropertySelector
+	// +optional
+	SubResourcesCount int32
 }
 
-// +genclient=true
-// +nonNamespaced=true
+// RCList is a list of Rcs
 type ResourceClassList struct {
 	metav1.TypeMeta
 	// +optional
@@ -2899,12 +2896,23 @@ type NodeSystemInfo struct {
 	Architecture string
 }
 
+type DeviceSubResources struct {
+	// Name of the Device
+	Name string
+	// Count of devices
+	Quantity int32
+}
+
 // Device is a physical or logical device
 type Device struct {
 	metav1.TypeMeta
 	// +optional
 	metav1.ObjectMeta
-	//Type of the device
+	// Count of devices
+	Quantity int32
+	// Device can be a group of several other devices
+	// +optional
+	SubResources DeviceSubResources
 }
 
 type ResourceSelectorOperator NodeSelectorOperator
