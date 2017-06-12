@@ -240,6 +240,7 @@ func maskTrailingDash(name string) string {
 // Prefix indicates this name will be used as part of generation, in which case
 // trailing dashes are allowed.
 var ValidatePodName = NameIsDNSSubdomain
+var ValidateResourceClassName = NameIsDNSSubdomain
 
 // ValidateReplicationControllerName can be used to check whether the given replication
 // controller name is valid.
@@ -2156,6 +2157,12 @@ func ValidateTolerations(tolerations []api.Toleration, fldPath *field.Path) fiel
 	return allErrors
 }
 
+func ValidateResourceClass(rClass *api.ResourceClass) field.ErrorList {
+	fldPath := field.NewPath("metadata")
+	allErrs := ValidateObjectMeta(&rClass.ObjectMeta, false, ValidateResourceClassName, fldPath)
+	return allErrs
+}
+
 // ValidatePod tests if required fields in the pod are set.
 func ValidatePod(pod *api.Pod) field.ErrorList {
 	fldPath := field.NewPath("metadata")
@@ -3209,6 +3216,13 @@ func ValidateNode(node *api.Node) field.ErrorList {
 	// TODO(rjnagal): Ignore PodCIDR till its completely implemented.
 	return allErrs
 }
+func ValidateResourceClassUpdate(rClass, oldResClass *api.ResourceClass) field.ErrorList {
+	//TODO(vikasc): Add implementation
+	var allErrs field.ErrorList
+	//oldResClass.Status.Allocatable = rClass.Status.Allocatable
+	//oldResClass.Status.Request = rClass.Status.Request
+	return allErrs
+}
 
 // ValidateNodeUpdate tests to make sure a node update can be applied.  Modifies oldNode.
 func ValidateNodeUpdate(node, oldNode *api.Node) field.ErrorList {
@@ -3649,7 +3663,7 @@ func ValidateResourceRequirements(requirements *api.ResourceRequirements, fldPat
 	for resourceName, quantity := range requirements.Requests {
 		fldPath := reqPath.Key(string(resourceName))
 		// Validate resource name.
-		allErrs = append(allErrs, validateContainerResourceName(string(resourceName), fldPath)...)
+		//allErrs = append(allErrs, validateContainerResourceName(string(resourceName), fldPath)...)
 		// Validate resource quantity.
 		allErrs = append(allErrs, ValidateResourceQuantityValue(string(resourceName), quantity, fldPath)...)
 	}

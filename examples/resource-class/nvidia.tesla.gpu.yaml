@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Device
+metadata:
+  name: nvidia-tesla-gpu
+  labels:
+    type: nvidia-gpu
+    quantity: "8"
+    compute-ability: "3.7"
+    memory: 10Gi
+    ecc: "true"
+    family: tesla
+    nvlink: "true"
+    model: k80
+

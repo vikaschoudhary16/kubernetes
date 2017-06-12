@@ -87,6 +87,7 @@ type genericScheduler struct {
 // If it fails, it will return a Fiterror error with reasons.
 func (g *genericScheduler) Schedule(pod *v1.Pod, nodeLister algorithm.NodeLister) (string, error) {
 	trace := utiltrace.New(fmt.Sprintf("Scheduling %s/%s", pod.Namespace, pod.Name))
+
 	defer trace.LogIfLong(100 * time.Millisecond)
 
 	nodes, err := nodeLister.List()
@@ -177,6 +178,8 @@ func findNodesThatFit(
 	} else {
 		// Create filtered list with enough space to avoid growing it
 		// and allow assigning.
+		//fmt.Println(file_line())
+		//fmt.Printf("\npredicateFuncs %+v\n", predicateFuncs)
 		filtered = make([]*v1.Node, len(nodes))
 		errs := errors.MessageCountMap{}
 		var predicateResultLock sync.Mutex

@@ -1325,6 +1325,43 @@ type EnvVarSource struct {
 	SecretKeyRef *SecretKeySelector
 }
 
+// +nonNamespaced=true
+// +genclient=true
+
+// ResourceClass
+type ResourceClass struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ObjectMeta
+
+	// Spec defines resources required
+	// +optional
+	Spec ResourceClassSpec
+	// +optional
+	Status ResourceClassStatus
+}
+
+type ResourceClassStatus struct {
+	Allocatable int32
+	Request     int32
+}
+
+// Spec dictates features and properties of devices targeted by Resource Class
+type ResourceClassSpec struct {
+	// ResourceSelector  selects resources. ORed from each selector
+	ResourceSelector []ResourcePropertySelector
+	// +optional
+	SubResourcesCount int32
+}
+
+// RCList is a list of Rcs
+type ResourceClassList struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ListMeta
+	Items []ResourceClass
+}
+
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
 	// Required: Version of the schema the FieldPath is written in terms of.
@@ -2859,6 +2896,44 @@ type NodeSystemInfo struct {
 	Architecture string
 }
 
+type DeviceSubResources struct {
+	// Name of the Device
+	Name string
+	// Count of devices
+	Quantity int32
+}
+
+// Device is a physical or logical device
+type Device struct {
+	metav1.TypeMeta
+	// +optional
+	metav1.ObjectMeta
+	// Count of devices
+	Quantity int32
+	// Device can be a group of several other devices
+	// +optional
+	SubResources DeviceSubResources
+}
+
+type ResourceSelectorOperator NodeSelectorOperator
+
+// A resource selector requirement is a selector that contains values, a key, and an operator
+// that relates the key and values
+type ResourceSelectorRequirement struct {
+	// The label key that the selector applies to
+	Key string
+	// Example 0.1, intel etc
+	Values []string
+	// operator
+	Operator ResourceSelectorOperator
+}
+
+// A null or empty selector matches no resources
+type ResourcePropertySelector struct {
+	// A list of resource/device selector requirements
+	MatchExpressions []ResourceSelectorRequirement
+}
+
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
 	// Capacity represents the total resources of a node.
@@ -2891,6 +2966,12 @@ type NodeStatus struct {
 	// List of volumes that are attached to the node.
 	// +optional
 	VolumesAttached []AttachedVolume
+	// Total devices that are attached to the node.
+	// +optional
+	CapacityDevices []Device
+	// Allocatable devices that are attached to the node.
+	// +optional
+	AllocatableDevices []Device
 }
 
 type UniqueVolumeName string

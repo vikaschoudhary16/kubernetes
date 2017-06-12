@@ -44,6 +44,7 @@ func Install(groupFactoryRegistry announced.APIGroupFactoryRegistry, registry *r
 				"Namespace",
 				"PersistentVolume",
 				"ComponentStatus",
+				"ResourceClass",
 			),
 			IgnoredKinds: sets.NewString(
 				"ListOptions",

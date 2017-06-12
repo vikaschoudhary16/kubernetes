@@ -76,6 +76,8 @@ type ConfigFactory struct {
 	serviceLister corelisters.ServiceLister
 	// a means to list all controllers
 	controllerLister corelisters.ReplicationControllerLister
+	// a means to list all resourceclasses
+	resClassLister corelisters.ResourceClassLister
 	// a means to list all replicasets
 	replicaSetLister extensionslisters.ReplicaSetLister
 	// a means to list all statefulsets
@@ -114,10 +116,15 @@ func NewConfigFactory(
 	replicaSetInformer extensionsinformers.ReplicaSetInformer,
 	statefulSetInformer appsinformers.StatefulSetInformer,
 	serviceInformer coreinformers.ServiceInformer,
+	resClassInformer coreinformers.ResourceClassInformer,
 	hardPodAffinitySymmetricWeight int,
 ) scheduler.Configurator {
 	stopEverything := make(chan struct{})
 	schedulerCache := schedulercache.New(30*time.Second, stopEverything)
+	err := schedulerCache.AddClient(client)
+	if err != nil {
+		glog.Errorf("Error on client addition: %v", err)
+	}
 
 	c := &ConfigFactory{
 		client:                         client,
@@ -129,6 +136,7 @@ func NewConfigFactory(
 		controllerLister:               replicationControllerInformer.Lister(),
 		replicaSetLister:               replicaSetInformer.Lister(),
 		statefulSetLister:              statefulSetInformer.Lister(),
+		resClassLister:                 resClassInformer.Lister(),
 		schedulerCache:                 schedulerCache,
 		StopEverything:                 stopEverything,
 		schedulerName:                  schedulerName,
@@ -202,6 +210,16 @@ func NewConfigFactory(
 	c.nodeLister = nodeInformer.Lister()
 
 	// TODO(harryz) need to fill all the handlers here and below for equivalence cache
+
+	resClassInformer.Informer().AddEventHandlerWithResyncPeriod(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: c.addResourceClassToCache,
+			//TODO: Implement
+			//UpdateFunc: c.updateResourceClassInCache,
+			//DeleteFunc: c.deleteResourceClassFromCache,
+		},
+		0,
+	)
 
 	return c
 }
@@ -277,6 +295,18 @@ func (c *ConfigFactory) deletePodFromCache(obj interface{}) {
 	}
 	if err := c.schedulerCache.RemovePod(pod); err != nil {
 		glog.Errorf("scheduler cache RemovePod failed: %v", err)
+	}
+}
+
+func (c *ConfigFactory) addResourceClassToCache(obj interface{}) {
+	rClass, ok := obj.(*v1.ResourceClass)
+	if !ok {
+		glog.Errorf("cannot convert to *v1.ResourceClass: %v", obj)
+		return
+	}
+
+	if err := c.schedulerCache.AddResourceClass(rClass); err != nil {
+		glog.Errorf("scheduler cache AddResourceClass failed: %v", err)
 	}
 }
 
