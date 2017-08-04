@@ -174,16 +174,12 @@ func AreAllOnloadDevicesAvailable() bool {
 		found++
 	}
 
-	if strings.Index(s, "onload_cplane") > 0 {
-		found++
-	}
-
 	// '\n' is added to avoid a match with onload_cplane and onload_epoll
 	if strings.Index(s, "onload\n") > 0 {
 		found++
 	}
 
-	if found == 3 {
+	if found == 2 {
 		return true
 	} else {
 		return false
