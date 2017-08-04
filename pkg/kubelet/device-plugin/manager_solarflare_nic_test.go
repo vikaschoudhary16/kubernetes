@@ -27,29 +27,38 @@ import (
 	//"strconv"
 	"strings"
 	"io/ioutil"
-  	"github.com/golang/glog"
+	"github.com/golang/glog"
 )
 
-func IsSolarFlareNICPresent() bool {
-
-	glog.Errorf("IsSolarFlareNICPresent\n")
-
+func ExecCommand(cmdName string, arg ...string) (bytes.Buffer, error) {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 
-	SolarFlareNICVendorID := "1924:"
+        glog.Errorf("exec: %s", cmdName)
 
-	cmdName := "lspci"
-	cmd := exec.Command(cmdName, "-d", SolarFlareNICVendorID)
+	cmd := exec.Command(cmdName, arg...)
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
 		fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-	} else {
+	}
+
+        return out, err
+}
+
+func IsSolarFlareNICPresent() bool {
+
+	glog.Errorf("IsSolarFlareNICPresent\n")
+
+	SolarFlareNICVendorID := "1924:"
+
+	cmdName := "lspci"
+	out, err := ExecCommand(cmdName, "-d", SolarFlareNICVendorID)
+	if err == nil {
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
-		if (strings.Contains(out.String(), "Solarflare Communications") == true) { 
+		if (strings.Contains(out.String(), "Solarflare Communications") == true) {
 			return true
 		}
 	}
@@ -61,146 +70,70 @@ func Init() {
 
 	glog.Errorf("Init\n");
 
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-
 	onloadver := "201606-u1.3"
 
 	cmdName := "yum"
-	cmdArgs := []string{}
-	cmd := exec.Command(cmdName, cmdArgs...)
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-	}
+	out, err := ExecCommand(cmdName, "version")
 	//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 	// if yum not found, abort and return error
-	if ((err != nil) && strings.Contains(stderr.String(), "not found") == false) { 
+	if (err == nil) {
 		// install onload dependencies
 		cmdName = "yum"
-		cmd = exec.Command(cmdName, "-y", "install", "gcc", "make", "libc", "libc-devel", "perl", "autoconf", "automake", "libtool", "kernel‐devel", "binutils", "gettext", "gawk", "gcc", "sed", "make", "bash", "glibc-common", "automake", "libtool", "libpcap", "libpcap-devel", "python-devel", "glibc‐devel.i586") 
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-		}
+		out, err = ExecCommand(cmdName, "-y", "install", "gcc", "make", "libc", "libc-devel", "perl", "autoconf", "automake", "libtool", "kernel‐devel", "binutils", "gettext", "gawk", "gcc", "sed", "make", "bash", "glibc-common", "automake", "libtool", "libpcap", "libpcap-devel", "python-devel", "glibc‐devel.i586")
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 		os.Chdir(os.Getenv("HOME"))
 		// unload and uninstall current onload
 		cmdName = "onload_tool unload"
-		cmd = exec.Command("onload_tool", "unload")
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-		}
+		out, err = ExecCommand("onload_tool", "unload")
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 		cmdName = "onload_uninstall"
-		cmd = exec.Command(cmdName)
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-		}
+		out, err = ExecCommand(cmdName)
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 		os.Chdir(os.Getenv("HOME"))
 		// remove current onload
 		cmdName = "rm onload"
-		cmd = exec.Command("/bin/sh", "-c", "rm -rf ./openonload*")
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-		}
+		out, err = ExecCommand("/bin/sh", "-c", "rm -rf ./openonload*")
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 		os.Chdir(os.Getenv("HOME"))
 		// get open onload from a authorized source - further security todo
 		cmdName = "get onload"
 		cmdstring := "http://www.openonload.org/download/openonload-" + onloadver + ".tgz"
-		cmd = exec.Command("wget", cmdstring) 
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-		}
+		out, err = ExecCommand("wget", cmdstring)
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 		os.Chdir(os.Getenv("HOME"))
 		// unzip onload
 		cmdName = "unzip onload"
 		cmdstring = "./openonload-" + onloadver + ".tgz"
-		cmd = exec.Command("tar", "xvzf", cmdstring)
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-		}
+		out, err = ExecCommand("tar", "xvzf", cmdstring)
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 		os.Chdir(os.Getenv("HOME"))
 		// install current onload
 		cmdName = "./openonload-" + onloadver + "/scripts/onload_install"
-		cmd = exec.Command(cmdName)
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-		}
+		out, err = ExecCommand(cmdName)
 		if ((err == nil) && strings.Contains(out.String(), "onload_install: Install complete")) {
 			fmt.Println("CMD--" + cmdName + ": " + "Install complete")
 
 			// reload onload
 			cmdName = "onload_tool unload"
-			cmd = exec.Command("onload_tool", "unload")
-			cmd.Stdout = &out
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-			}
+			out, err = ExecCommand("onload_tool", "unload")
 			//fmt.Println("CMD--" + cmdName + ": " + out.String())
 			cmdName = "onload_tool reload"
-			cmd = exec.Command("onload_tool", "reload")
-			cmd.Stdout = &out
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-			}
+			out, err = ExecCommand("onload_tool", "reload")
 			//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 			cmdName = "onload"
-			cmd = exec.Command(cmdName)
-			cmd.Stdout = &out
-			cmd.Stderr = &stderr
-			err = cmd.Run()
-			if err != nil {
-				fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-			}
+			out, err = ExecCommand(cmdName, "--version")
 			//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
-			if (strings.Contains(stderr.String(), "Solarflare Communications") && strings.Contains(stderr.String(), onloadver)) {
+			if (strings.Contains(out.String(), "Solarflare Communications") && strings.Contains(out.String(), onloadver)) {
 				cmdName = "/sbin/ldconfig"
-				cmd = exec.Command(cmdName, "-N", "-v")
-				cmd.Stdout = &out
-				cmd.Stderr = &stderr
-				err = cmd.Run()
-				if err != nil {
-					fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-				}
+				out, err = ExecCommand(cmdName, "-N", "-v")
 				//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 				if (strings.Contains(out.String(), "libonload")) {
