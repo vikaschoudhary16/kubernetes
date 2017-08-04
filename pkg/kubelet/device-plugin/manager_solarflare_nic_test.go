@@ -66,10 +66,7 @@ func IsSolarFlareNICPresent() bool {
 	return false
 }
 
-func Init() {
-
-	glog.Errorf("Init\n");
-
+func InstallOnload() {
 	onloadver := "201606-u1.3"
         onloadsrc := "http://www.openonload.org/download/openonload-" + onloadver + ".tgz"
 
@@ -159,6 +156,13 @@ func Init() {
 		//Init fails with error - todo
 		return
 	}
+}
+
+func Init() {
+
+	glog.Errorf("Init\n");
+
+        InstallOnload()
 
 	return
 }
