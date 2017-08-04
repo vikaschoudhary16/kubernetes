@@ -24,10 +24,11 @@ import (
 	"bytes"
 	//"syscall"
 	"fmt"
-	//"strconv"
+	"strconv"
 	"strings"
 	"io/ioutil"
 	"github.com/golang/glog"
+	"bufio"
 )
 
 func ExecCommand(cmdName string, arg ...string) (bytes.Buffer, error) {
@@ -64,6 +65,52 @@ func IsSolarFlareNICPresent() bool {
 	}
 
 	return false
+}
+
+func DetectSolarflareResources() (error) {
+
+	name := "/proc/driver/sfc_resource/resources"
+	file, err := os.Open(name)
+	if err != nil {
+		glog.Errorf("%s: %s", name, err)
+		return err
+	}
+	defer file.Close()
+
+	var resource_type string
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		switch {
+		case strings.HasPrefix(line, "*** ") && strings.HasSuffix(line, " ***"):
+			resource_type = line[4:len(line)-4]
+
+		case strings.Index(line, " = ") > 0:
+			parts := strings.Split(line, " = ")
+			tag := strings.TrimSpace(parts[0])
+			value, err := strconv.Atoi(parts[1])
+
+			if err != nil {
+				glog.Errorf("%s", err.Error())
+				return err
+			}
+
+			// At this point:
+			//   resource_type is one of "VI", "VI_SET", "VF", "PD", "PIO"
+			//   tag is one of "total", "current", "max"
+			//   value is the associated count
+
+			// For now we are only interested in VIs.
+
+			if resource_type == "VI" && tag == "total" {
+				glog.Errorf("Detected %d Solarflare virtual interfaces", value)
+			}
+		}
+	}
+
+	return nil
 }
 
 func InstallOnload() {
@@ -163,6 +210,10 @@ func Init() {
 	glog.Errorf("Init\n");
 
         InstallOnload()
+
+        // At this point we have verified that Onload has been successfully installed.
+
+        DetectSolarflareResources()
 
 	return
 }
