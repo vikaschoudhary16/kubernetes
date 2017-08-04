@@ -71,6 +71,7 @@ func Init() {
 	glog.Errorf("Init\n");
 
 	onloadver := "201606-u1.3"
+        onloadsrc := "http://www.openonload.org/download/openonload-" + onloadver + ".tgz"
 
 	cmdName := "yum"
 	out, err := ExecCommand(cmdName, "version")
@@ -101,14 +102,18 @@ func Init() {
 		os.Chdir(os.Getenv("HOME"))
 		// get open onload from a authorized source - further security todo
 		cmdName = "get onload"
-		cmdstring := "http://www.openonload.org/download/openonload-" + onloadver + ".tgz"
-		out, err = ExecCommand("wget", cmdstring)
+
+                if strings.HasPrefix(onloadsrc, "http://") {
+		        out, err = ExecCommand("wget", onloadsrc)
+                } else {
+                        out, err = ExecCommand("cp", onloadsrc, ".")
+                }
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
 		os.Chdir(os.Getenv("HOME"))
 		// unzip onload
 		cmdName = "unzip onload"
-		cmdstring = "./openonload-" + onloadver + ".tgz"
+		cmdstring := "./openonload-" + onloadver + ".tgz"
 		out, err = ExecCommand("tar", "xvzf", cmdstring)
 		//fmt.Println("CMD--" + cmdName + ": " + out.String())
 
