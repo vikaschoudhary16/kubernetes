@@ -411,6 +411,9 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies) (err error) {
 		if err != nil {
 			return err
 		}
+
+		devicePluginEnabled := utilfeature.DefaultFeatureGate.Enabled(features.DevicePlugins)
+
 		kubeDeps.ContainerManager, err = cm.NewContainerManager(
 			kubeDeps.Mounter,
 			kubeDeps.CAdvisorInterface,
@@ -434,6 +437,7 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies) (err error) {
 				ExperimentalQOSReserved: *experimentalQOSReserved,
 			},
 			s.FailSwapOn,
+			devicePluginEnabled,
 			kubeDeps.Recorder)
 
 		if err != nil {

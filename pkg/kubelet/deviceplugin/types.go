@@ -24,28 +24,28 @@ import (
 	pluginapi "k8s.io/kubernetes/pkg/kubelet/apis/deviceplugin/v1alpha1"
 )
 
-// MonitorCallback is the function called when a device becomes
-// unhealthy (or healthy again)
-// Updated contains the most recent state of the Device
+// MonitorCallback is the function called when a device's health state changes,
+// or new devices are reported, or old devices are deleted.
+// Updated contains the most recent state of the Device.
 type MonitorCallback func(resourceName string, added, updated, deleted []*pluginapi.Device)
 
-// Manager manages the Device Plugins running on a machine
+// Manager manages all the Device Plugins running on a node.
 type Manager interface {
-	// Start starts the gRPC service
+	// Start starts the gRPC Registration service.
 	Start() error
 	// Devices is the map of devices that have registered themselves
 	// against the manager.
-	// The map key is the ResourceName of the device plugins
+	// The map key is the ResourceName of the device plugins.
 	Devices() map[string][]*pluginapi.Device
 
-	// Allocate is calls the gRPC Allocate on the device plugin
-	Allocate(string, []*pluginapi.Device) (*pluginapi.AllocateResponse, error)
+	// Allocate calls the gRPC Allocate on the device plugin.
+	Allocate(string, []string) (*pluginapi.AllocateResponse, error)
 
-	// Stop stops the manager
+	// Stop stops the manager.
 	Stop() error
 }
 
-// ManagerImpl is the structure in charge of managing Device Plugins
+// ManagerImpl is the structure in charge of managing Device Plugins.
 type ManagerImpl struct {
 	socketname string
 	socketdir  string
@@ -59,16 +59,16 @@ type ManagerImpl struct {
 }
 
 const (
-	// ErrDevicePluginUnknown is the error raised when the device Plugin returned by Monitor is not know by the Device Plugin manager
-	ErrDevicePluginUnknown = "Manager does not have device plugin for device:"
-	// ErrDeviceUnknown is the error raised when the device returned by Monitor is not know by the Device Plugin manager
-	ErrDeviceUnknown = "Could not find device in it's Device Plugin's Device List:"
-	// ErrBadSocket is the error raised when the registry socket path is not absolute
-	ErrBadSocket = "Bad socketPath, must be an absolute path:"
-	// ErrRemoveSocket is the error raised when the registry could not remove the existing socket
-	ErrRemoveSocket = "Failed to remove socket while starting device plugin registry, with error"
-	// ErrListenSocket is the error raised when the registry could not listen on the socket
-	ErrListenSocket = "Failed to listen to socket while starting device plugin registry, with error"
-	// ErrListAndWatch is the error raised when ListAndWatch ended unsuccessfully
-	ErrListAndWatch = "ListAndWatch ended unexpectedly for device plugin %s with error %v"
+	// errDevicePluginUnknown is the error raised when the device Plugin returned by Monitor is not know by the Device Plugin manager
+	errDevicePluginUnknown = "Manager does not have device plugin for device:"
+	// errDeviceUnknown is the error raised when the device returned by Monitor is not know by the Device Plugin manager
+	errDeviceUnknown = "Could not find device in it's Device Plugin's Device List:"
+	// errBadSocket is the error raised when the registry socket path is not absolute
+	errBadSocket = "Bad socketPath, must be an absolute path:"
+	// errRemoveSocket is the error raised when the registry could not remove the existing socket
+	errRemoveSocket = "Failed to remove socket while starting device plugin registry, with error"
+	// errListenSocket is the error raised when the registry could not listen on the socket
+	errListenSocket = "Failed to listen to socket while starting device plugin registry, with error"
+	// errListAndWatch is the error raised when ListAndWatch ended unsuccessfully
+	errListAndWatch = "ListAndWatch ended unexpectedly for device plugin %s with error %v"
 )

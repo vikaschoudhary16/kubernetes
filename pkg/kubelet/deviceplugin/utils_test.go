@@ -25,7 +25,7 @@ import (
 )
 
 func TestCloneDevice(t *testing.T) {
-	d := CloneDevice(&pluginapi.Device{ID: "ADeviceId", Health: pluginapi.Healthy})
+	d := cloneDevice(&pluginapi.Device{ID: "ADeviceId", Health: pluginapi.Healthy})
 
 	require.Equal(t, d.ID, "ADeviceId")
 	require.Equal(t, d.Health, pluginapi.Healthy)
@@ -45,10 +45,10 @@ func TestGetDevice(t *testing.T) {
 		{ID: "ADeviceId", Health: pluginapi.Healthy},
 	}
 
-	_, ok := GetDevice(&pluginapi.Device{ID: "AnotherDeviceId"}, devs)
+	_, ok := getDevice(&pluginapi.Device{ID: "AnotherDeviceId"}, devs)
 	require.False(t, ok)
 
-	d, ok := GetDevice(&pluginapi.Device{ID: "ADeviceId"}, devs)
+	d, ok := getDevice(&pluginapi.Device{ID: "ADeviceId"}, devs)
 	require.True(t, ok)
 	require.Equal(t, d, devs[0])
 }

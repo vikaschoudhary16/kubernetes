@@ -27,8 +27,8 @@ import (
 	pluginapi "k8s.io/kubernetes/pkg/kubelet/apis/deviceplugin/v1alpha1"
 )
 
-// MockDevicePlugin is a mock device plugin
-type MockDevicePlugin struct {
+// Stub implementation for DevicePlugin.
+type Stub struct {
 	devs   []*pluginapi.Device
 	socket string
 
@@ -38,9 +38,9 @@ type MockDevicePlugin struct {
 	server *grpc.Server
 }
 
-// NewMockDevicePlugin returns an initialized MockDevicePlugin
-func NewMockDevicePlugin(devs []*pluginapi.Device, socket string) *MockDevicePlugin {
-	return &MockDevicePlugin{
+// NewDevicePluginStub returns an initialized DevicePlugin Stub.
+func NewDevicePluginStub(devs []*pluginapi.Device, socket string) *Stub {
+	return &Stub{
 		devs:   devs,
 		socket: socket,
 
@@ -50,7 +50,7 @@ func NewMockDevicePlugin(devs []*pluginapi.Device, socket string) *MockDevicePlu
 }
 
 // Start starts the gRPC server of the device plugin
-func (m *MockDevicePlugin) Start() error {
+func (m *Stub) Start() error {
 	err := m.cleanup()
 	if err != nil {
 		return err
@@ -71,14 +71,14 @@ func (m *MockDevicePlugin) Start() error {
 }
 
 // Stop stops the gRPC server
-func (m *MockDevicePlugin) Stop() error {
+func (m *Stub) Stop() error {
 	m.server.Stop()
 
 	return m.cleanup()
 }
 
 // ListAndWatch lists devices and update that list according to the Update call
-func (m *MockDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
+func (m *Stub) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	log.Println("ListAndWatch")
 	var devs []*pluginapi.Device
 
@@ -102,19 +102,19 @@ func (m *MockDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePl
 }
 
 // Update allows the device plugin to send new devices through ListAndWatch
-func (m *MockDevicePlugin) Update(devs []*pluginapi.Device) {
+func (m *Stub) Update(devs []*pluginapi.Device) {
 	m.update <- devs
 }
 
 // Allocate does a mock allocation
-func (m *MockDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (m *Stub) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.Printf("Allocate, %+v", r)
 
 	var response pluginapi.AllocateResponse
 	return &response, nil
 }
 
-func (m *MockDevicePlugin) cleanup() error {
+func (m *Stub) cleanup() error {
 	if err := os.Remove(m.socket); err != nil && !os.IsNotExist(err) {
 		return err
 	}
