@@ -249,7 +249,7 @@ func (sfc *sfcNICManager) ListAndWatch(emtpy *pluginapi.Empty, stream pluginapi.
 func (sfc *sfcNICManager) Allocate(ctx context.Context, rqt *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	glog.Info("Allocate")
 	resp := new(pluginapi.AllocateResponse)
-	containerName := strings.Join([]string{"k8s", rqt.ContainerName, rqt.PodName, rqt.Namespace}, "_")
+	containerName := strings.Join([]string{"k8s", "POD", rqt.PodName, rqt.Namespace}, "_")
 	for _, id := range rqt.DevicesIDs {
 		if _, ok := sfc.devices[id]; ok {
 			devRuntime := new(pluginapi.DeviceRuntimeSpec)
@@ -261,6 +261,7 @@ func (sfc *sfcNICManager) Allocate(ctx context.Context, rqt *pluginapi.AllocateR
 				})
 			}
 			resp.Spec = append(resp.Spec, devRuntime)
+			glog.Info("Allocate interface ", id, " to ", containerName)
 			go MoveInterface(containerName, id)
 		}
 	}
@@ -273,7 +274,6 @@ func MoveInterface(containerName string, interfaceName string) {
 	if err != nil {
 		glog.Error(err)
 	}
-	glog.Info(out)
 }
 
 func AreAllOnloadDevicesAvailable() bool {

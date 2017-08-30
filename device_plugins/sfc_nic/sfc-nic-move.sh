@@ -1,8 +1,6 @@
 #!/bin/bash -x
-#containerName=${1}
-#NIC=${2}
-containerName="k8s_demo1_my.pod2_default"
-NIC="p2p1"
+containerName=${1}
+NIC=${2}
 rm -f /var/run/netns/$containerName
 containerID=`docker ps | grep $containerName | awk {'print $1'}`
 echo $containerID
