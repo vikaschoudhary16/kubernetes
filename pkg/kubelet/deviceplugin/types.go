@@ -39,7 +39,7 @@ type Manager interface {
 	Devices() map[string][]*pluginapi.Device
 
 	// Allocate calls the gRPC Allocate on the device plugin.
-	Allocate(string, []string) (*pluginapi.AllocateResponse, error)
+	Allocate(string, string, string, []string) (*pluginapi.AllocateResponse, error)
 
 	// Stop stops the manager.
 	Stop() error

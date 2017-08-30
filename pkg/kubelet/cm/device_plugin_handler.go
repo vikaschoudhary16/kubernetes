@@ -105,9 +105,9 @@ type DevicePluginHandlerImpl struct {
 	// devicePluginManagerMonitorCallback is used for testing only.
 	devicePluginManagerMonitorCallback deviceplugin.MonitorCallback
 	// allDevices contains all of registered resourceNames and their exported device IDs.
-	allDevices         map[string]sets.String
+	allDevices map[string]sets.String
 	// allocatedDevices contains pod to allocated device mapping, keyed by resourceName.
-	allocatedDevices   map[string]*podDevices
+	allocatedDevices map[string]*podDevices
 }
 
 // NewDevicePluginHandler create a DevicePluginHandler
@@ -116,8 +116,8 @@ type DevicePluginHandlerImpl struct {
 func NewDevicePluginHandlerImpl(updateCapacityFunc func(v1.ResourceList)) (*DevicePluginHandlerImpl, error) {
 	glog.V(2).Infof("Creating Device Plugin Handler")
 	handler := &DevicePluginHandlerImpl{
-		allDevices:         make(map[string]sets.String),
-		allocatedDevices:   devicesInUse(),
+		allDevices:       make(map[string]sets.String),
+		allocatedDevices: devicesInUse(),
 	}
 
 	deviceManagerMonitorCallback := func(resourceName string, added, updated, deleted []*pluginapi.Device) {
@@ -205,7 +205,7 @@ func (h *DevicePluginHandlerImpl) Allocate(pod *v1.Pod, container *v1.Container,
 		// requests may fail if we serve them in mixed order.
 		// TODO: may revisit this part later if we see inefficient resource allocation
 		// in real use as the result of this.
-		resp, err := h.devicePluginManager.Allocate(resource, append(devices.UnsortedList(), allocated...))
+		resp, err := h.devicePluginManager.Allocate(pod.Namespace, pod.Name, resource, append(devices.UnsortedList(), allocated...))
 		if err != nil {
 			return nil, err
 		}
