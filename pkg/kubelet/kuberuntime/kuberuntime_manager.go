@@ -280,9 +280,9 @@ func (m *kubeGenericRuntimeManager) Status() (*kubecontainer.RuntimeStatus, erro
 }
 
 // GetRuntimeConfigInfo returns runtime configuration details cached at runtime manager
-func (m *kubeGenericRuntimeManager) GetRuntimeConfigInfo() *kubecontainer.RuntimeConfigInfo {
+func (m *kubeGenericRuntimeManager) GetRuntimeConfigInfo() (*kubecontainer.RuntimeConfigInfo, error) {
 	if m.runtimeConfig != nil {
-		return m.runtimeConfig
+		return m.runtimeConfig, nil
 	}
 	runtimeConfig, err := m.runtimeService.GetRuntimeConfigInfo()
 	if err != nil {
@@ -301,7 +301,7 @@ func (m *kubeGenericRuntimeManager) GetRuntimeConfigInfo() *kubecontainer.Runtim
 		m.firstRemappedUIDOnHost, m.firstRemappedGIDOnHost = ci.GetHostUserNamespaceRemappedHostIds()
 	}
 	m.runtimeConfig = ci
-	return ci
+	return ci, nil
 }
 
 // GetRemappedIds returns UID and GID on host namespace which are mapped to container namespace

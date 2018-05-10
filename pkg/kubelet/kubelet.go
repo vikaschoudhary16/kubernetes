@@ -1156,9 +1156,9 @@ type Kubelet struct {
 // validateKubeletRuntimeConfigurationCompatibility verifies that Kubelet and runtime configurations are compatible
 func (kl *Kubelet) validateKubeletRuntimeConfigurationCompatibility(runtime kubecontainer.Runtime) error {
 	// TODO(vikasc): validate cgroup driver configuration also in this function.
-	ci := runtime.GetRuntimeConfigInfo()
-	if ci == nil {
-		return fmt.Errorf("container runtime info is empty")
+	ci, err := runtime.GetRuntimeConfigInfo()
+	if err != nil {
+		return fmt.Errorf("failed to get container runtime info: %v", err)
 	}
 	glog.V(4).Infof("Container runtime config info: %v", ci)
 
@@ -1326,8 +1326,8 @@ func (kl *Kubelet) initializeModules() error {
 // initializeRuntimeDependentModules will initialize internal modules that require the container runtime to be up.
 func (kl *Kubelet) initializeRuntimeDependentModules() {
 	if kl.nodeUserNamespace {
-		if err := kl.validateKubeletRuntimeConfigurationCompatibility(kl.runtime); err != nil {
-			return nil, fmt.Errorf("kubelet and runtime configurations are incompatible. Err: %v", err)
+		if err := kl.validateKubeletRuntimeConfigurationCompatibility(kl.containerRuntime); err != nil {
+			glog.Fatalf("kubelet and runtime configurations are incompatible. Err: %v", err)
 		}
 	}
 

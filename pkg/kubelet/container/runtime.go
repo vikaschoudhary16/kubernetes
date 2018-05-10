@@ -123,7 +123,7 @@ type Runtime interface {
 	// CIDR value down to the runtime shim.
 	UpdatePodCIDR(podCIDR string) error
 	// GetRuntimeConfigInfo returns runtime's configuration details, eg: if user-namespaces are enabled or not
-	GetRuntimeConfigInfo() *RuntimeConfigInfo
+	GetRuntimeConfigInfo() (*RuntimeConfigInfo, error)
 	// GetRemappedIds returns UID and GID on host namespace which are mapped to container namespace
 	GetRemappedIds() (int, int)
 }

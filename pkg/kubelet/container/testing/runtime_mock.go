@@ -60,9 +60,9 @@ func (r *Mock) Status() (*RuntimeStatus, error) {
 	return args.Get(0).(*RuntimeStatus), args.Error(0)
 }
 
-func (r *Mock) GetRuntimeConfigInfo() *RuntimeConfigInfo {
+func (r *Mock) GetRuntimeConfigInfo() (*RuntimeConfigInfo, error) {
 	args := r.Called()
-	return args.Get(0).(*RuntimeConfigInfo)
+	return args.Get(0).(*RuntimeConfigInfo), args.Error(1)
 }
 
 func (r *Mock) GetRemappedIds() (int, int) {
