@@ -194,6 +194,11 @@ func (kl *Kubelet) getRuntime() kubecontainer.Runtime {
 	return kl.containerRuntime
 }
 
+// getRemappedIDs returns the uid and gid from the host usernamespace that are mapped to container user-namespace
+func (kl *Kubelet) getRemappedIDs() (int, int) {
+	return kl.containerRuntime.GetRemappedIds()
+}
+
 // GetNode returns the node info for the configured node name of this Kubelet.
 func (kl *Kubelet) GetNode() (*v1.Node, error) {
 	if kl.kubeClient == nil {

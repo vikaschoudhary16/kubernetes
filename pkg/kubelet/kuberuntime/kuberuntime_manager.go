@@ -116,6 +116,13 @@ type kubeGenericRuntimeManager struct {
 
 	// A shim to legacy functions for backward compatibility.
 	legacyLogProvider LegacyLogProvider
+
+	// cache of runtime configuration eg, user-namespace configuration
+	runtimeConfig *kubecontainer.RuntimeConfigInfo
+	// GID on host usernamespace mapped to GID 0 in container user-namespace
+	firstRemappedGIDOnHost int
+	// UID on host usernamespace mapped to UID 0 in container user-namespace
+	firstRemappedUIDOnHost int
 }
 
 type KubeGenericRuntime interface {
@@ -270,6 +277,36 @@ func (m *kubeGenericRuntimeManager) Status() (*kubecontainer.RuntimeStatus, erro
 		return nil, err
 	}
 	return toKubeRuntimeStatus(status), nil
+}
+
+// GetRuntimeConfigInfo returns runtime configuration details cached at runtime manager
+func (m *kubeGenericRuntimeManager) GetRuntimeConfigInfo() *kubecontainer.RuntimeConfigInfo {
+	if m.runtimeConfig != nil {
+		return m.runtimeConfig
+	}
+	runtimeConfig, err := m.runtimeService.GetRuntimeConfigInfo()
+	if err != nil {
+		return nil, fmt.Errorf("container runtime info get failed: %v", err)
+	}
+	ci := toKubeRuntimeConfig(runtimeConfig)
+	glog.V(5).Infof("Container runtime config info: %v", ci)
+	m.firstRemappedUIDOnHost = -1
+	m.firstRemappedGIDOnHost = -1
+
+	if ci.IsUserNamespaceEnabled() {
+		containerFirstUID, containerFirstGID := ci.GetContainerUserNamespaceIds()
+		if containerFirstUID != 0 || containerFirstGID != 0 {
+			return nil, fmt.Errorf("unsupported runtime usernamespace configuration. First {U/G}ID from the container must be 0")
+		}
+		m.firstRemappedUIDOnHost, m.firstRemappedGIDOnHost = ci.GetHostUserNamespaceRemappedHostIds()
+	}
+	m.runtimeConfig = ci
+	return ci
+}
+
+// GetRemappedIds returns UID and GID on host namespace which are mapped to container namespace
+func (m *kubeGenericRuntimeManager) GetRemappedIds() (int, int) {
+	return m.firstRemappedUIDOnHost, m.firstRemappedGIDOnHost
 }
 
 // GetPods returns a list of containers grouped by pods. The boolean parameter

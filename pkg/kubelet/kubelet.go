@@ -526,13 +526,13 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		nodeIP:               parsedNodeIP,
 		nodeIPValidator:      validateNodeIP,
 		clock:                clock.RealClock{},
-		enableControllerAttachDetach:            kubeCfg.EnableControllerAttachDetach,
-		iptClient:                               utilipt.New(utilexec.New(), utildbus.New(), utilipt.ProtocolIpv4),
-		makeIPTablesUtilChains:                  kubeCfg.MakeIPTablesUtilChains,
-		iptablesMasqueradeBit:                   int(kubeCfg.IPTablesMasqueradeBit),
-		iptablesDropBit:                         int(kubeCfg.IPTablesDropBit),
-		experimentalHostUserNamespaceDefaulting: utilfeature.DefaultFeatureGate.Enabled(features.ExperimentalHostUserNamespaceDefaultingGate),
-		keepTerminatedPodVolumes:                keepTerminatedPodVolumes,
+		enableControllerAttachDetach: kubeCfg.EnableControllerAttachDetach,
+		iptClient:                    utilipt.New(utilexec.New(), utildbus.New(), utilipt.ProtocolIpv4),
+		makeIPTablesUtilChains:       kubeCfg.MakeIPTablesUtilChains,
+		iptablesMasqueradeBit:        int(kubeCfg.IPTablesMasqueradeBit),
+		iptablesDropBit:              int(kubeCfg.IPTablesDropBit),
+		nodeUserNamespace:            utilfeature.DefaultFeatureGate.Enabled(features.NodeUserNamespace),
+		keepTerminatedPodVolumes:     keepTerminatedPodVolumes,
 	}
 
 	if klet.cloud != nil {
@@ -550,8 +550,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		kubeDeps.KubeClient, manager.GetObjectTTLFromNodeFunc(klet.GetNode))
 	klet.configMapManager = configMapManager
 
-	if klet.experimentalHostUserNamespaceDefaulting {
-		glog.Infof("Experimental host user namespace defaulting is enabled.")
+	if klet.nodeUserNamespace {
+		glog.Infof("Node-level user namespace support is enabled.")
 	}
 
 	machineInfo, err := klet.cadvisor.MachineInfo()
@@ -644,6 +644,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	if err != nil {
 		return nil, err
 	}
+
 	klet.runtimeService = runtimeService
 	runtime, err := kuberuntime.NewKubeGenericRuntimeManager(
 		kubecontainer.FilterEventRecorder(kubeDeps.Recorder),
@@ -668,6 +669,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	if err != nil {
 		return nil, err
 	}
+
 	klet.containerRuntime = runtime
 	klet.runner = runtime
 
@@ -1137,7 +1139,7 @@ type Kubelet struct {
 	// or using host path volumes.
 	// This should only be enabled when the container runtime is performing user remapping AND if the
 	// experimental behavior is desired.
-	experimentalHostUserNamespaceDefaulting bool
+	nodeUserNamespace bool
 
 	// dockerLegacyService contains some legacy methods for backward compatibility.
 	// It should be set only when docker is using non json-file logging driver.
@@ -1149,6 +1151,23 @@ type Kubelet struct {
 	// This flag, if set, instructs the kubelet to keep volumes from terminated pods mounted to the node.
 	// This can be useful for debugging volume related issues.
 	keepTerminatedPodVolumes bool // DEPRECATED
+}
+
+// validateKubeletRuntimeConfigurationCompatibility verifies that Kubelet and runtime configurations are compatible
+func (kl *Kubelet) validateKubeletRuntimeConfigurationCompatibility(runtime kubecontainer.Runtime) error {
+	// TODO(vikasc): validate cgroup driver configuration also in this function.
+	ci := runtime.GetRuntimeConfigInfo()
+	if ci == nil {
+		return fmt.Errorf("container runtime info is empty")
+	}
+	glog.V(4).Infof("Container runtime config info: %v", ci)
+
+	// First verify that kubelet's user-namespace configuration is consistent with runtime's
+	// userns configuration
+	if kl.nodeUserNamespace != ci.IsUserNamespaceEnabled() {
+		return fmt.Errorf("container runtime and Kubelet configuration mismatch. Expect user-namespace remapping feature to be enabled at runtime, got disabled")
+	}
+	return nil
 }
 
 func allGlobalUnicastIPs() ([]net.IP, error) {
@@ -1189,8 +1208,30 @@ func (kl *Kubelet) setupDataDirs() error {
 	if err := os.MkdirAll(kl.getPodsDir(), 0750); err != nil {
 		return fmt.Errorf("error creating pods directory: %v", err)
 	}
+	if err := kl.chownDirForRemappedIDs(kl.getPodsDir()); err != nil {
+		return fmt.Errorf("error chowning pods directory: %v", err)
+	}
 	if err := os.MkdirAll(kl.getPluginsDir(), 0750); err != nil {
 		return fmt.Errorf("error creating plugins directory: %v", err)
+	}
+	if err := kl.chownDirForRemappedIDs(kl.getPluginsDir()); err != nil {
+		return fmt.Errorf("error chowning plugins directory: %v", err)
+	}
+
+	return nil
+}
+
+func (kl *Kubelet) chownDirForRemappedIDs(path string) error {
+	if !kl.nodeUserNamespace {
+		return nil
+	}
+	if path == "" {
+		return fmt.Errorf("path to be setup is empty.")
+	}
+	uid, gid := kl.getRemappedIDs()
+	if err := os.Chown(path, uid, gid); err != nil {
+		return fmt.Errorf("error setting ownership to remapped IDs %d:%d on %q: %v",
+			uid, gid, path, err)
 	}
 	return nil
 }
@@ -1284,6 +1325,12 @@ func (kl *Kubelet) initializeModules() error {
 
 // initializeRuntimeDependentModules will initialize internal modules that require the container runtime to be up.
 func (kl *Kubelet) initializeRuntimeDependentModules() {
+	if kl.nodeUserNamespace {
+		if err := kl.validateKubeletRuntimeConfigurationCompatibility(kl.runtime); err != nil {
+			return nil, fmt.Errorf("kubelet and runtime configurations are incompatible. Err: %v", err)
+		}
+	}
+
 	if err := kl.cadvisor.Start(); err != nil {
 		// Fail kubelet and rely on the babysitter to retry starting kubelet.
 		// TODO(random-liu): Add backoff logic in the babysitter
@@ -2077,6 +2124,7 @@ func (kl *Kubelet) updateRuntimeUp() {
 		glog.Errorf("Container runtime not ready: %v", runtimeReady)
 		return
 	}
+
 	kl.oneTimeInitializer.Do(kl.initializeRuntimeDependentModules)
 	kl.runtimeState.setRuntimeSync(kl.clock.Now())
 }
