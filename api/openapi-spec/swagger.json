@@ -79380,6 +79380,10 @@
       "description": "Use the host's pid namespace. Optional: Default to false.",
       "type": "boolean"
      },
+     "hostUserNamespace": {
+      "description": "Use the host's user namespace. Optional: Defaults to empty This field is alpha-level and should be enabled on a node only if user-namespace remapping feature is enabled at runtime.",
+      "type": "boolean"
+     },
      "hostname": {
       "description": "Specifies the hostname of the Pod If not specified, the pod's hostname will be set to a system-defined value.",
       "type": "string"
