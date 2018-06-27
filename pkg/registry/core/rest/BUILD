@@ -41,6 +41,7 @@ go_library(
         "//pkg/registry/core/podtemplate/storage:go_default_library",
         "//pkg/registry/core/rangeallocation:go_default_library",
         "//pkg/registry/core/replicationcontroller/storage:go_default_library",
+        "//pkg/registry/core/resourceclass/storage:go_default_library",
         "//pkg/registry/core/resourcequota/storage:go_default_library",
         "//pkg/registry/core/secret/storage:go_default_library",
         "//pkg/registry/core/service/allocator:go_default_library",

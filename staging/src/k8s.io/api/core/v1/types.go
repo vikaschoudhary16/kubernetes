@@ -1994,6 +1994,14 @@ const (
 	TerminationMessagePathDefault string = "/dev/termination-log"
 )
 
+// List of devices
+type DeviceList struct {
+	// +optional
+	Count int32 `json:"count,omitempty" protobuf:"varint,1,opt,name=count"`
+	// +optional
+	UIDs []types.UID `json:"uids, omitempty" protobuf:"bytes,2,rep,name=uids"`
+}
+
 // A single application container that you want to run within a pod.
 type Container struct {
 	// Name of the container specified as a DNS_LABEL.
@@ -2142,6 +2150,10 @@ type Container struct {
 	// Default is false.
 	// +optional
 	TTY bool `json:"tty,omitempty" protobuf:"varint,18,opt,name=tty"`
+	// Compute resources which are resolved and recorded by the scheduler along with count. Actual device ids will be
+	// allocated by kubelet
+	// +optional
+	AllocatedComputeResources map[string]DeviceList `json:"allocatedComputeResources,omitempty" protobuf:"bytes,21,rep,name=allocatedComputeResources"`
 }
 
 // Handler defines a specific action that should be taken

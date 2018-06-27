@@ -37,6 +37,7 @@ filegroup(
         "//pkg/apis/batch:all-srcs",
         "//pkg/apis/certificates:all-srcs",
         "//pkg/apis/componentconfig:all-srcs",
+        "//pkg/apis/computeresources:all-srcs",
         "//pkg/apis/coordination:all-srcs",
         "//pkg/apis/core:all-srcs",
         "//pkg/apis/events:all-srcs",

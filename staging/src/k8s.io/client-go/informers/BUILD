@@ -80,6 +80,7 @@ filegroup(
         "//staging/src/k8s.io/client-go/informers/autoscaling:all-srcs",
         "//staging/src/k8s.io/client-go/informers/batch:all-srcs",
         "//staging/src/k8s.io/client-go/informers/certificates:all-srcs",
+        "//staging/src/k8s.io/client-go/informers/computeresources:all-srcs",
         "//staging/src/k8s.io/client-go/informers/coordination:all-srcs",
         "//staging/src/k8s.io/client-go/informers/core:all-srcs",
         "//staging/src/k8s.io/client-go/informers/events:all-srcs",
