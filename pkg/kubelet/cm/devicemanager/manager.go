@@ -258,18 +258,21 @@ func (m *ManagerImpl) Devices() map[string][]pluginapi.Device {
 // from the registered device plugins.
 func (m *ManagerImpl) Allocate(node *schedulercache.NodeInfo, attrs *lifecycle.PodAdmitAttributes) error {
 	pod := attrs.Pod
-	devicesToReuse := make(map[string]sets.String)
+	// TODO(vikasc): If device ids are coming set in the container spec, use those only.
+	//	devicesToReuse := make(map[string]sets.String)
 	for _, container := range pod.Spec.InitContainers {
-		if err := m.allocateContainerResources(pod, &container, devicesToReuse); err != nil {
+		//if err := m.allocateContainerResources(pod, &container, devicesToReuse); err != nil {
+		if err := m.allocateContainerResources(pod, &container); err != nil {
 			return err
 		}
-		m.podDevices.addContainerAllocatedResources(string(pod.UID), container.Name, devicesToReuse)
+		//m.podDevices.addContainerAllocatedResources(string(pod.UID), container.Name, devicesToReuse)
 	}
 	for _, container := range pod.Spec.Containers {
-		if err := m.allocateContainerResources(pod, &container, devicesToReuse); err != nil {
+		//if err := m.allocateContainerResources(pod, &container, devicesToReuse); err != nil {
+		if err := m.allocateContainerResources(pod, &container); err != nil {
 			return err
 		}
-		m.podDevices.removeContainerAllocatedResources(string(pod.UID), container.Name, devicesToReuse)
+		//m.podDevices.removeContainerAllocatedResources(string(pod.UID), container.Name, devicesToReuse)
 	}
 
 	m.mutex.Lock()
@@ -280,7 +283,8 @@ func (m *ManagerImpl) Allocate(node *schedulercache.NodeInfo, attrs *lifecycle.P
 		return nil
 	}
 
-	m.sanitizeNodeAllocatable(node)
+	//m.sanitizeNodeAllocatable(node)
+	m.sanitizeNodeComputeResources(node)
 	return nil
 }
 
@@ -537,10 +541,10 @@ func (m *ManagerImpl) updateAllocatedDevices(activePods []*v1.Pod) {
 
 // Returns list of device Ids we need to allocate with Allocate rpc call.
 // Returns empty list in case we don't need to issue the Allocate rpc call.
-func (m *ManagerImpl) devicesToAllocate(podUID, contName, resource string, required int, reusableDevices sets.String) (sets.String, error) {
+func (m *ManagerImpl) devicesToAllocate(podUID, contName, resource string, required sets.String) (sets.String, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	needed := required
+	needed := required.Len()
 	// Gets list of devices that have already been allocated.
 	// This can happen if a container restarts for example.
 	devices := m.podDevices.containerDevices(podUID, contName, resource)
@@ -557,20 +561,21 @@ func (m *ManagerImpl) devicesToAllocate(podUID, contName, resource string, requi
 		// No change, no work.
 		return nil, nil
 	}
-	glog.V(3).Infof("Needs to allocate %v %v for pod %q container %q", needed, resource, podUID, contName)
+	glog.V(3).Infof("Needs to allocate %v %v for pod %q container %q", required, resource, podUID, contName)
 	// Needs to allocate additional devices.
 	if _, ok := m.healthyDevices[resource]; !ok {
 		return nil, fmt.Errorf("can't allocate unregistered device %v", resource)
 	}
 	devices = sets.NewString()
 	// Allocates from reusableDevices list first.
-	for device := range reusableDevices {
-		devices.Insert(device)
-		needed--
-		if needed == 0 {
-			return devices, nil
-		}
-	}
+	// NOTE(vikasc): 'reusable' logic will be taken care at scheduler while deciding device ids
+	//for device := range reusableDevices {
+	//	devices.Insert(device)
+	//	needed--
+	//	if needed == 0 {
+	//		return devices, nil
+	//	}
+	//}
 	// Needs to allocate additional devices.
 	if m.allocatedDevices[resource] == nil {
 		m.allocatedDevices[resource] = sets.NewString()
@@ -579,14 +584,15 @@ func (m *ManagerImpl) devicesToAllocate(podUID, contName, resource string, requi
 	devicesInUse := m.allocatedDevices[resource]
 	// Gets a list of available devices.
 	available := m.healthyDevices[resource].Difference(devicesInUse)
-	if int(available.Len()) < needed {
-		return nil, fmt.Errorf("requested number of devices unavailable for %s. Requested: %d, Available: %d", resource, needed, available.Len())
+	//if int(available.Len()) < needed {
+	if !required.Equal(required.Intersection(available)) {
+		return nil, fmt.Errorf("requested devices unavailable for %s. Requested: %v, Available: %v", resource, required, available)
 	}
-	allocated := available.UnsortedList()[:needed]
+	//allocated := available.UnsortedList()[:needed]
 	// Updates m.allocatedDevices with allocated devices to prevent them
 	// from being allocated to other pods/containers, given that we are
 	// not holding lock during the rpc call.
-	for _, device := range allocated {
+	for _, device := range required {
 		m.allocatedDevices[resource].Insert(device)
 		devices.Insert(device)
 	}
@@ -597,7 +603,8 @@ func (m *ManagerImpl) devicesToAllocate(podUID, contName, resource string, requi
 // plugin resources for the input container, issues an Allocate rpc request
 // for each new device resource requirement, processes their AllocateResponses,
 // and updates the cached containerDevices on success.
-func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Container, devicesToReuse map[string]sets.String) error {
+///func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Container, devicesToReuse map[string]sets.String) error {
+func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Container) error {
 	podUID := string(pod.UID)
 	contName := container.Name
 	allocatedDevicesUpdated := false
@@ -605,7 +612,8 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 	// Since device plugin advertises extended resources,
 	// therefore Requests must be equal to Limits and iterating
 	// over the Limits should be sufficient.
-	for k, v := range container.Resources.Limits {
+	//for k, v := range container.Resources.Limits {
+	for k, v := range container.Spec.DeviceIds {
 		resource := string(k)
 		needed := int(v.Value())
 		glog.V(3).Infof("needs %d %s", needed, resource)
@@ -618,7 +626,8 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 			m.updateAllocatedDevices(m.activePods())
 			allocatedDevicesUpdated = true
 		}
-		allocDevices, err := m.devicesToAllocate(podUID, contName, resource, needed, devicesToReuse[resource])
+		//allocDevices, err := m.devicesToAllocate(podUID, contName, resource, needed, devicesToReuse[resource])
+		allocDevices, err := m.devicesToAllocate(podUID, contName, resource, needed)
 		if err != nil {
 			return err
 		}
@@ -739,28 +748,31 @@ func (m *ManagerImpl) callPreStartContainerIfNeeded(podUID, contName, resource s
 // and if necessary, updates allocatableResource in nodeInfo to at least equal to
 // the allocated capacity. This allows pods that have already been scheduled on
 // the node to pass GeneralPredicates admission checking even upon device plugin failure.
-func (m *ManagerImpl) sanitizeNodeAllocatable(node *schedulercache.NodeInfo) {
-	var newAllocatableResource *schedulercache.Resource
-	allocatableResource := node.AllocatableResource()
-	if allocatableResource.ScalarResources == nil {
-		allocatableResource.ScalarResources = make(map[v1.ResourceName]int64)
-	}
-	for resource, devices := range m.allocatedDevices {
-		needed := devices.Len()
-		quant, ok := allocatableResource.ScalarResources[v1.ResourceName(resource)]
-		if ok && int(quant) >= needed {
-			continue
-		}
-		// Needs to update nodeInfo.AllocatableResource to make sure
-		// NodeInfo.allocatableResource at least equal to the capacity already allocated.
-		if newAllocatableResource == nil {
-			newAllocatableResource = allocatableResource.Clone()
-		}
-		newAllocatableResource.ScalarResources[v1.ResourceName(resource)] = int64(needed)
-	}
-	if newAllocatableResource != nil {
-		node.SetAllocatableResource(newAllocatableResource)
-	}
+//func (m *ManagerImpl) sanitizeNodeAllocatable(node *schedulercache.NodeInfo) {
+func (m *ManagerImpl) sanitizeNodeComputeResources(node *schedulercache.NodeInfo) {
+	//TODO(vikasc): update allocatable units of all the computeResources in node info
+
+	//var newAllocatableResource *schedulercache.Resource
+	//allocatableResource := node.AllocatableResource()
+	//if allocatableResource.ScalarResources == nil {
+	//	allocatableResource.ScalarResources = make(map[v1.ResourceName]int64)
+	//}
+	//	for resource, devices := range m.allocatedDevices {
+	//		needed := devices.Len()
+	//		quant, ok := allocatableResource.ScalarResources[v1.ResourceName(resource)]
+	//		if ok && int(quant) >= needed {
+	//			continue
+	//		}
+	// Needs to update nodeInfo.AllocatableResource to make sure
+	// NodeInfo.allocatableResource at least equal to the capacity already allocated.
+	//		if newAllocatableResource == nil {
+	//			newAllocatableResource = allocatableResource.Clone()
+	//		}
+	//		newAllocatableResource.ScalarResources[v1.ResourceName(resource)] = int64(needed)
+	//	}
+	//	if newAllocatableResource != nil {
+	//		node.SetAllocatableResource(newAllocatableResource)
+	//	}
 }
 
 func (m *ManagerImpl) isDevicePluginResource(resource string) bool {

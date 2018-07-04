@@ -80,7 +80,7 @@ func (w *predicateAdmitHandler) Admit(attrs *PodAdmitAttributes) PodAdmitResult 
 	pod := attrs.Pod
 	pods := attrs.OtherPods
 	nodeInfo := schedulercache.NewNodeInfo(pods...)
-	nodeInfo.SetNode(node)
+	nodeInfo.SetNode(node, pods...)
 	// ensure the node has enough plugin resources for that required in pods
 	if err = w.pluginResourceUpdateFunc(nodeInfo, attrs); err != nil {
 		message := fmt.Sprintf("Update plugin resources failed due to %v, which is unexpected.", err)
@@ -202,6 +202,7 @@ func removeMissingExtendedResources(pod *v1.Pod, nodeInfo *schedulercache.NodeIn
 		for rName, rQuant := range c.Resources.Requests {
 			if v1helper.IsExtendedResourceName(rName) {
 				if _, found := nodeInfo.AllocatableResource().ScalarResources[rName]; !found {
+					// TODO(vikasc): Also check if a resource class with name, rName exists and has property to indicate that it is a cluster-level resource
 					continue
 				}
 			}

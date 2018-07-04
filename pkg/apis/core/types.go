@@ -3525,6 +3525,21 @@ type NodeStatus struct {
 	// Status of the config assigned to the node via the dynamic Kubelet config feature.
 	// +optional
 	Config *NodeConfigStatus
+	// List of extended resources
+	// +optional
+	ComputeResources []ComputeResource
+}
+
+type ComputeResource struct {
+	// raw resource name. E.g.: nvidia.com/gpu
+	ResourceName string
+	// resource metadata received from device plugin.
+	// e.g., gpuType: k80, zone: us-west1-b
+	Properties map[string]string
+	// list of deviceIds received from device plugin.
+	// e.g., ["nvida0", "nvidia1"]
+	Devices []string
+	Units   resource.Quantity
 }
 
 type UniqueVolumeName string

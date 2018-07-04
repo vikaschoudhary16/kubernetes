@@ -45,8 +45,8 @@ type ResourceClass struct {
 type ResourceClassSpec struct {
 	// Resource Selector selects resources
 	ResourceSelector []ResourcePropertySelector `json:"resourceSelector" protobuf:"bytes,1,rep,name=resourceSelector"`
-	// +optional
-	SubResourcesCount int32 `json:"subResourcesCount" protobuf:"varint,2,opt,name=subResourcesCount"`
+	// used to compare preference of two matching ResourceClasses
+	Priority int32 `json:"priority" protobuf:"varint,2,name=priority"`
 }
 
 // ResourceClassStatus  is information about the current status of a resource class

@@ -3960,6 +3960,21 @@ type NodeStatus struct {
 	// Status of the config assigned to the node via the dynamic Kubelet config feature.
 	// +optional
 	Config *NodeConfigStatus `json:"config,omitempty" protobuf:"bytes,11,opt,name=config"`
+	// List of extended resources
+	// +optional
+	ComputeResources []ComputeResource `json:"computeResources,omitempty" protobuf:"bytes,12,rep,name=computeResources"`
+}
+
+type ComputeResource struct {
+	// raw resource name. E.g.: nvidia.com/gpu
+	Name string `json:"name" protobuf:"bytes,1,rep,name=name"`
+	// resource metadata received from device plugin.
+	// e.g., gpuType: k80, zone: us-west1-b
+	Properties map[string]string `json:"properties,omitempty" protobuf:"bytes,2,rep,name=properties"`
+	// list of deviceIds received from device plugin.
+	// e.g., ["nvida0", "nvidia1"]
+	Devices []string          `json:"devices" protobuf:"bytes,3,rep,name=devices"`
+	Units   resource.Quantity `json:"units,omitempty" protobuf:"bytes,4,name=units"`
 }
 
 type UniqueVolumeName string

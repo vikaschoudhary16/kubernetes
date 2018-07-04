@@ -253,10 +253,18 @@ func (cache *schedulerCache) onAddPodHandleResClasses(pod *v1.Pod) {
 	if !ok {
 		return
 	}
-	deviceMappings, ResourceClassRequestMappings, _ := n.OnAddUpdateResClassToDeviceMappingForPod(pod)
-	for _, mapping := range deviceMappings {
-		annotKey := v1.ResClassPodAnnotationKeyPrefix + "_" + mapping.rClassName + "_" + mapping.deviceName
-		n.patchPodWithDeviceAnnotation(pod, annotKey, mapping.deviceQuantity)
+	deviceMappingsForAllContainers, ResourceClassRequestMappings, _ := n.OnAddUpdateResClassToDeviceMappingForPod(pod)
+	for containerName, deviceMappings := range deviceMappingsForAllContainers {
+		for _, c := range pod.Spec.Containers {
+			if c.Name != containerName {
+				continue
+			}
+			for _, mapping := range deviceMappings {
+				// TODO(vikasc): Update AllocatedComputeResources
+				//annotKey := v1.ResClassPodAnnotationKeyPrefix + "_" + mapping.rClassName + "_" + mapping.deviceName
+				n.patchPodWithAllocatedComputeResources(deviceMappingsForAllContainers)
+			}
+		}
 	}
 	if ResourceClassRequestMappings != nil {
 		for rClassName, request := range *ResourceClassRequestMappings {
@@ -477,30 +485,24 @@ func (cache *schedulerCache) AddNode(node *v1.Node) error {
 		n = NewNodeInfo()
 		cache.nodes[node.Name] = n
 		n.kubeClient = cache.kubeClient
-		//fmt.Printf("\n%s cache.rClasses %+v\n", file_line(), cache.resourceClasses)
-		//for _, rc := range cache.resourceClasses {
-		//	rcPerNodeInfo, err := n.AddResourceClass(rc.resClass, node)
-		//	if err != nil {
-		//		break
-		///	} else {
-		//		rc.Allocatable += rcPerNodeInfo.Allocatable
-		///		rc.Requested += rcPerNodeInfo.Requested
-		//		n.patchResourceClassStatus(rc.resClass, rc.Allocatable, rc.Requested)
-		//	}
-		//}
+	}
+	if err := n.SetNode(node); err != nil {
+		return fmt.Errorf("failed to add new node: %v", err)
 	}
 	fmt.Printf("\n%s cache.rClasses %+v\n", file_line(), cache.resourceClasses)
 	for _, rc := range cache.resourceClasses {
 		rcPerNodeInfo, err := n.AddResourceClass(rc.resClass, node)
 		if err != nil {
-			break
+			return fmt.Errorf("failed to add resource class: %v", err)
 		} else {
 			rc.Allocatable += rcPerNodeInfo.Allocatable
 			rc.Requested += rcPerNodeInfo.Requested
-			n.patchResourceClassStatus(rc.resClass, rc.Allocatable, rc.Requested)
+			if err := n.patchResourceClassStatus(rc.resClass, rc.Allocatable, rc.Requested); err != nil {
+				return fmt.Errorf("failed to update resourceclass status: %v, err")
+			}
 		}
 	}
-	return n.SetNode(node)
+	return nil
 }
 
 func (cache *schedulerCache) UpdateNode(oldNode, newNode *v1.Node) error {

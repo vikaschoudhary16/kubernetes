@@ -47,8 +47,8 @@ type ResourceClassStatus struct {
 type ResourceClassSpec struct {
 	// ResourceSelector  selects resources. ORed from each selector
 	ResourceSelector []ResourcePropertySelector
-	// +optional
-	SubResourcesCount int32
+	//Priority is used to compare preference of two matching ResourceClasses
+	Priority int32
 }
 
 // RCList is a list of Rcs
