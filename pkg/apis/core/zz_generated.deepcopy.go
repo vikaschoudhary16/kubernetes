@@ -2538,8 +2538,15 @@ func (in *NodeStatus) DeepCopyInto(out *NodeStatus) {
 		*out = new(NodeConfigStatus)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ComputeResources != nil {
-		in, out := &in.ComputeResources, &out.ComputeResources
+	if in.ComputeResourceCapacity != nil {
+		in, out := &in.ComputeResourceCapacity, &out.ComputeResourceCapacity
+		*out = make([]ComputeResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.ComputeResourceAllocatable != nil {
+		in, out := &in.ComputeResourceAllocatable, &out.ComputeResourceAllocatable
 		*out = make([]ComputeResource, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

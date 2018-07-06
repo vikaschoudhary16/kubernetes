@@ -26,6 +26,7 @@ limitations under the License.
 
 	It has these top-level messages:
 		DevicePluginOptions
+		DeviceAttributes
 		RegisterRequest
 		Empty
 		ListAndWatchResponse
@@ -84,6 +85,22 @@ func (m *DevicePluginOptions) GetPreStartRequired() bool {
 	return false
 }
 
+type DeviceAttributes struct {
+	// Attributes of the devices. eg: {"version": "1.0"}
+	Attributes map[string]string `protobuf:"bytes,1,rep,name=attributes" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *DeviceAttributes) Reset()                    { *m = DeviceAttributes{} }
+func (*DeviceAttributes) ProtoMessage()               {}
+func (*DeviceAttributes) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{1} }
+
+func (m *DeviceAttributes) GetAttributes() map[string]string {
+	if m != nil {
+		return m.Attributes
+	}
+	return nil
+}
+
 type RegisterRequest struct {
 	// Version of the API the Device Plugin was built against
 	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
@@ -98,7 +115,7 @@ type RegisterRequest struct {
 
 func (m *RegisterRequest) Reset()                    { *m = RegisterRequest{} }
 func (*RegisterRequest) ProtoMessage()               {}
-func (*RegisterRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{1} }
+func (*RegisterRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{2} }
 
 func (m *RegisterRequest) GetVersion() string {
 	if m != nil {
@@ -133,7 +150,7 @@ type Empty struct {
 
 func (m *Empty) Reset()                    { *m = Empty{} }
 func (*Empty) ProtoMessage()               {}
-func (*Empty) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{2} }
+func (*Empty) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{3} }
 
 // ListAndWatch returns a stream of List of Devices
 // Whenever a Device state change or a Device disapears, ListAndWatch
@@ -144,7 +161,7 @@ type ListAndWatchResponse struct {
 
 func (m *ListAndWatchResponse) Reset()                    { *m = ListAndWatchResponse{} }
 func (*ListAndWatchResponse) ProtoMessage()               {}
-func (*ListAndWatchResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{3} }
+func (*ListAndWatchResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{4} }
 
 func (m *ListAndWatchResponse) GetDevices() []*Device {
 	if m != nil {
@@ -165,11 +182,13 @@ type Device struct {
 	ID string `protobuf:"bytes,1,opt,name=ID,json=iD,proto3" json:"ID,omitempty"`
 	// Health of the device, can be healthy or unhealthy, see constants.go
 	Health string `protobuf:"bytes,2,opt,name=health,proto3" json:"health,omitempty"`
+	// Attributes of the device. eg: {"version": "1.0"}
+	Attributes map[string]string `protobuf:"bytes,3,rep,name=attributes" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (m *Device) Reset()                    { *m = Device{} }
 func (*Device) ProtoMessage()               {}
-func (*Device) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{4} }
+func (*Device) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{5} }
 
 func (m *Device) GetID() string {
 	if m != nil {
@@ -185,6 +204,13 @@ func (m *Device) GetHealth() string {
 	return ""
 }
 
+func (m *Device) GetAttributes() map[string]string {
+	if m != nil {
+		return m.Attributes
+	}
+	return nil
+}
+
 // - PreStartContainer is expected to be called before each container start if indicated by plugin during registration phase.
 // - PreStartContainer allows kubelet to pass reinitialized devices to containers.
 // - PreStartContainer allows Device Plugin to run device specific operations on
@@ -195,7 +221,7 @@ type PreStartContainerRequest struct {
 
 func (m *PreStartContainerRequest) Reset()                    { *m = PreStartContainerRequest{} }
 func (*PreStartContainerRequest) ProtoMessage()               {}
-func (*PreStartContainerRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{5} }
+func (*PreStartContainerRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{6} }
 
 func (m *PreStartContainerRequest) GetDevicesIDs() []string {
 	if m != nil {
@@ -210,7 +236,7 @@ type PreStartContainerResponse struct {
 
 func (m *PreStartContainerResponse) Reset()                    { *m = PreStartContainerResponse{} }
 func (*PreStartContainerResponse) ProtoMessage()               {}
-func (*PreStartContainerResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{6} }
+func (*PreStartContainerResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{7} }
 
 // - Allocate is expected to be called during pod creation since allocation
 //   failures for any container would result in pod startup failure.
@@ -224,7 +250,7 @@ type AllocateRequest struct {
 
 func (m *AllocateRequest) Reset()                    { *m = AllocateRequest{} }
 func (*AllocateRequest) ProtoMessage()               {}
-func (*AllocateRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{7} }
+func (*AllocateRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{8} }
 
 func (m *AllocateRequest) GetContainerRequests() []*ContainerAllocateRequest {
 	if m != nil {
@@ -239,7 +265,7 @@ type ContainerAllocateRequest struct {
 
 func (m *ContainerAllocateRequest) Reset()                    { *m = ContainerAllocateRequest{} }
 func (*ContainerAllocateRequest) ProtoMessage()               {}
-func (*ContainerAllocateRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{8} }
+func (*ContainerAllocateRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{9} }
 
 func (m *ContainerAllocateRequest) GetDevicesIDs() []string {
 	if m != nil {
@@ -262,7 +288,7 @@ type AllocateResponse struct {
 
 func (m *AllocateResponse) Reset()                    { *m = AllocateResponse{} }
 func (*AllocateResponse) ProtoMessage()               {}
-func (*AllocateResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{9} }
+func (*AllocateResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{10} }
 
 func (m *AllocateResponse) GetContainerResponses() []*ContainerAllocateResponse {
 	if m != nil {
@@ -284,7 +310,7 @@ type ContainerAllocateResponse struct {
 
 func (m *ContainerAllocateResponse) Reset()                    { *m = ContainerAllocateResponse{} }
 func (*ContainerAllocateResponse) ProtoMessage()               {}
-func (*ContainerAllocateResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{10} }
+func (*ContainerAllocateResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{11} }
 
 func (m *ContainerAllocateResponse) GetEnvs() map[string]string {
 	if m != nil {
@@ -327,7 +353,7 @@ type Mount struct {
 
 func (m *Mount) Reset()                    { *m = Mount{} }
 func (*Mount) ProtoMessage()               {}
-func (*Mount) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{11} }
+func (*Mount) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{12} }
 
 func (m *Mount) GetContainerPath() string {
 	if m != nil {
@@ -365,7 +391,7 @@ type DeviceSpec struct {
 
 func (m *DeviceSpec) Reset()                    { *m = DeviceSpec{} }
 func (*DeviceSpec) ProtoMessage()               {}
-func (*DeviceSpec) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{12} }
+func (*DeviceSpec) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{13} }
 
 func (m *DeviceSpec) GetContainerPath() string {
 	if m != nil {
@@ -390,6 +416,7 @@ func (m *DeviceSpec) GetPermissions() string {
 
 func init() {
 	proto.RegisterType((*DevicePluginOptions)(nil), "v1beta1.DevicePluginOptions")
+	proto.RegisterType((*DeviceAttributes)(nil), "v1beta1.DeviceAttributes")
 	proto.RegisterType((*RegisterRequest)(nil), "v1beta1.RegisterRequest")
 	proto.RegisterType((*Empty)(nil), "v1beta1.Empty")
 	proto.RegisterType((*ListAndWatchResponse)(nil), "v1beta1.ListAndWatchResponse")
@@ -482,6 +509,8 @@ type DevicePluginClient interface {
 	// GetDevicePluginOptions returns options to be communicated with Device
 	// Manager
 	GetDevicePluginOptions(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DevicePluginOptions, error)
+	// GetDeviceAttributes returns attributes  to be communicated with Device Manager
+	GetDeviceAttributes(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeviceAttributes, error)
 	// ListAndWatch returns a stream of List of Devices
 	// Whenever a Device state change or a Device disapears, ListAndWatch
 	// returns the new list
@@ -507,6 +536,15 @@ func NewDevicePluginClient(cc *grpc.ClientConn) DevicePluginClient {
 func (c *devicePluginClient) GetDevicePluginOptions(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DevicePluginOptions, error) {
 	out := new(DevicePluginOptions)
 	err := grpc.Invoke(ctx, "/v1beta1.DevicePlugin/GetDevicePluginOptions", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *devicePluginClient) GetDeviceAttributes(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DeviceAttributes, error) {
+	out := new(DeviceAttributes)
+	err := grpc.Invoke(ctx, "/v1beta1.DevicePlugin/GetDeviceAttributes", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +607,8 @@ type DevicePluginServer interface {
 	// GetDevicePluginOptions returns options to be communicated with Device
 	// Manager
 	GetDevicePluginOptions(context.Context, *Empty) (*DevicePluginOptions, error)
+	// GetDeviceAttributes returns attributes  to be communicated with Device Manager
+	GetDeviceAttributes(context.Context, *Empty) (*DeviceAttributes, error)
 	// ListAndWatch returns a stream of List of Devices
 	// Whenever a Device state change or a Device disapears, ListAndWatch
 	// returns the new list
@@ -601,6 +641,24 @@ func _DevicePlugin_GetDevicePluginOptions_Handler(srv interface{}, ctx context.C
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DevicePluginServer).GetDevicePluginOptions(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DevicePlugin_GetDeviceAttributes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DevicePluginServer).GetDeviceAttributes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1beta1.DevicePlugin/GetDeviceAttributes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DevicePluginServer).GetDeviceAttributes(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -671,6 +729,10 @@ var _DevicePlugin_serviceDesc = grpc.ServiceDesc{
 			Handler:    _DevicePlugin_GetDevicePluginOptions_Handler,
 		},
 		{
+			MethodName: "GetDeviceAttributes",
+			Handler:    _DevicePlugin_GetDeviceAttributes_Handler,
+		},
+		{
 			MethodName: "Allocate",
 			Handler:    _DevicePlugin_Allocate_Handler,
 		},
@@ -713,6 +775,41 @@ func (m *DevicePluginOptions) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0
 		}
 		i++
+	}
+	return i, nil
+}
+
+func (m *DeviceAttributes) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeviceAttributes) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Attributes) > 0 {
+		for k := range m.Attributes {
+			dAtA[i] = 0xa
+			i++
+			v := m.Attributes[k]
+			mapSize := 1 + len(k) + sovApi(uint64(len(k))) + 1 + len(v) + sovApi(uint64(len(v)))
+			i = encodeVarintApi(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApi(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintApi(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
 	}
 	return i, nil
 }
@@ -837,6 +934,23 @@ func (m *Device) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintApi(dAtA, i, uint64(len(m.Health)))
 		i += copy(dAtA[i:], m.Health)
+	}
+	if len(m.Attributes) > 0 {
+		for k := range m.Attributes {
+			dAtA[i] = 0x1a
+			i++
+			v := m.Attributes[k]
+			mapSize := 1 + len(k) + sovApi(uint64(len(k))) + 1 + len(v) + sovApi(uint64(len(v)))
+			i = encodeVarintApi(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintApi(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintApi(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
 	}
 	return i, nil
 }
@@ -1173,6 +1287,20 @@ func (m *DevicePluginOptions) Size() (n int) {
 	return n
 }
 
+func (m *DeviceAttributes) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Attributes) > 0 {
+		for k, v := range m.Attributes {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovApi(uint64(len(k))) + 1 + len(v) + sovApi(uint64(len(v)))
+			n += mapEntrySize + 1 + sovApi(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
 func (m *RegisterRequest) Size() (n int) {
 	var l int
 	_ = l
@@ -1223,6 +1351,14 @@ func (m *Device) Size() (n int) {
 	l = len(m.Health)
 	if l > 0 {
 		n += 1 + l + sovApi(uint64(l))
+	}
+	if len(m.Attributes) > 0 {
+		for k, v := range m.Attributes {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovApi(uint64(len(k))) + 1 + len(v) + sovApi(uint64(len(v)))
+			n += mapEntrySize + 1 + sovApi(uint64(mapEntrySize))
+		}
 	}
 	return n
 }
@@ -1373,6 +1509,26 @@ func (this *DevicePluginOptions) String() string {
 	}, "")
 	return s
 }
+func (this *DeviceAttributes) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForAttributes := make([]string, 0, len(this.Attributes))
+	for k := range this.Attributes {
+		keysForAttributes = append(keysForAttributes, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForAttributes)
+	mapStringForAttributes := "map[string]string{"
+	for _, k := range keysForAttributes {
+		mapStringForAttributes += fmt.Sprintf("%v: %v,", k, this.Attributes[k])
+	}
+	mapStringForAttributes += "}"
+	s := strings.Join([]string{`&DeviceAttributes{`,
+		`Attributes:` + mapStringForAttributes + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *RegisterRequest) String() string {
 	if this == nil {
 		return "nil"
@@ -1409,9 +1565,20 @@ func (this *Device) String() string {
 	if this == nil {
 		return "nil"
 	}
+	keysForAttributes := make([]string, 0, len(this.Attributes))
+	for k := range this.Attributes {
+		keysForAttributes = append(keysForAttributes, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForAttributes)
+	mapStringForAttributes := "map[string]string{"
+	for _, k := range keysForAttributes {
+		mapStringForAttributes += fmt.Sprintf("%v: %v,", k, this.Attributes[k])
+	}
+	mapStringForAttributes += "}"
 	s := strings.Join([]string{`&Device{`,
 		`ID:` + fmt.Sprintf("%v", this.ID) + `,`,
 		`Health:` + fmt.Sprintf("%v", this.Health) + `,`,
+		`Attributes:` + mapStringForAttributes + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1579,6 +1746,172 @@ func (m *DevicePluginOptions) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.PreStartRequired = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DeviceAttributes) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeviceAttributes: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeviceAttributes: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attributes", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			var keykey uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				keykey |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			var stringLenmapkey uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLenmapkey |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLenmapkey := int(stringLenmapkey)
+			if intStringLenmapkey < 0 {
+				return ErrInvalidLengthApi
+			}
+			postStringIndexmapkey := iNdEx + intStringLenmapkey
+			if postStringIndexmapkey > l {
+				return io.ErrUnexpectedEOF
+			}
+			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
+			iNdEx = postStringIndexmapkey
+			if m.Attributes == nil {
+				m.Attributes = make(map[string]string)
+			}
+			if iNdEx < postIndex {
+				var valuekey uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApi
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					valuekey |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				var stringLenmapvalue uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApi
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLenmapvalue := int(stringLenmapvalue)
+				if intStringLenmapvalue < 0 {
+					return ErrInvalidLengthApi
+				}
+				postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+				if postStringIndexmapvalue > l {
+					return io.ErrUnexpectedEOF
+				}
+				mapvalue := string(dAtA[iNdEx:postStringIndexmapvalue])
+				iNdEx = postStringIndexmapvalue
+				m.Attributes[mapkey] = mapvalue
+			} else {
+				var mapvalue string
+				m.Attributes[mapkey] = mapvalue
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipApi(dAtA[iNdEx:])
@@ -1987,6 +2320,122 @@ func (m *Device) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Health = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attributes", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			var keykey uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				keykey |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			var stringLenmapkey uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLenmapkey |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLenmapkey := int(stringLenmapkey)
+			if intStringLenmapkey < 0 {
+				return ErrInvalidLengthApi
+			}
+			postStringIndexmapkey := iNdEx + intStringLenmapkey
+			if postStringIndexmapkey > l {
+				return io.ErrUnexpectedEOF
+			}
+			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
+			iNdEx = postStringIndexmapkey
+			if m.Attributes == nil {
+				m.Attributes = make(map[string]string)
+			}
+			if iNdEx < postIndex {
+				var valuekey uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApi
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					valuekey |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				var stringLenmapvalue uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowApi
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLenmapvalue := int(stringLenmapvalue)
+				if intStringLenmapvalue < 0 {
+					return ErrInvalidLengthApi
+				}
+				postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+				if postStringIndexmapvalue > l {
+					return io.ErrUnexpectedEOF
+				}
+				mapvalue := string(dAtA[iNdEx:postStringIndexmapvalue])
+				iNdEx = postStringIndexmapvalue
+				m.Attributes[mapkey] = mapvalue
+			} else {
+				var mapvalue string
+				m.Attributes[mapkey] = mapvalue
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3096,53 +3545,57 @@ var (
 func init() { proto.RegisterFile("api.proto", fileDescriptorApi) }
 
 var fileDescriptorApi = []byte{
-	// 760 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xcd, 0x4e, 0xdb, 0x4a,
-	0x14, 0x8e, 0x13, 0xc8, 0xcf, 0x49, 0x80, 0x30, 0x20, 0x64, 0x0c, 0xd7, 0xca, 0xf5, 0xd5, 0xbd,
-	0xe2, 0x4a, 0x10, 0x20, 0x48, 0xdc, 0x2b, 0x16, 0x55, 0x53, 0x42, 0x5b, 0xa4, 0xb6, 0x44, 0x46,
-	0x55, 0x37, 0x95, 0x22, 0xc7, 0x99, 0xc6, 0x56, 0x93, 0x19, 0xd7, 0x33, 0x89, 0x94, 0x5d, 0x17,
-	0x7d, 0x80, 0x3e, 0x44, 0x1f, 0xa3, 0x0f, 0xc0, 0xb2, 0xcb, 0x2e, 0x4b, 0xfa, 0x22, 0x95, 0xc7,
-	0x1e, 0x3b, 0x32, 0x01, 0x5a, 0xa9, 0x3b, 0xcf, 0x77, 0xce, 0xf7, 0xcd, 0x39, 0x67, 0x4e, 0xbe,
-	0x40, 0xc9, 0xf2, 0xdc, 0xba, 0xe7, 0x53, 0x4e, 0x51, 0x61, 0x7c, 0xd8, 0xc5, 0xdc, 0x3a, 0xd4,
-	0xf6, 0xfa, 0x2e, 0x77, 0x46, 0xdd, 0xba, 0x4d, 0x87, 0xfb, 0x7d, 0xda, 0xa7, 0xfb, 0x22, 0xde,
-	0x1d, 0xbd, 0x11, 0x27, 0x71, 0x10, 0x5f, 0x21, 0xcf, 0x38, 0x85, 0xb5, 0x16, 0x1e, 0xbb, 0x36,
-	0x6e, 0x0f, 0x46, 0x7d, 0x97, 0x5c, 0x78, 0xdc, 0xa5, 0x84, 0xa1, 0x5d, 0x40, 0x9e, 0x8f, 0x3b,
-	0x8c, 0x5b, 0x3e, 0xef, 0xf8, 0xf8, 0xdd, 0xc8, 0xf5, 0x71, 0x4f, 0x55, 0x6a, 0xca, 0x4e, 0xd1,
-	0xac, 0x7a, 0x3e, 0xbe, 0x0c, 0x02, 0x66, 0x84, 0x1b, 0x9f, 0x14, 0x58, 0x31, 0x71, 0xdf, 0x65,
-	0x1c, 0xfb, 0x01, 0x88, 0x19, 0x47, 0x2a, 0x14, 0xc6, 0xd8, 0x67, 0x2e, 0x25, 0x82, 0x56, 0x32,
-	0xe5, 0x11, 0x69, 0x50, 0xc4, 0xa4, 0xe7, 0x51, 0x97, 0x70, 0x35, 0x2b, 0x42, 0xf1, 0x19, 0xfd,
-	0x05, 0x4b, 0x3e, 0x66, 0x74, 0xe4, 0xdb, 0xb8, 0x43, 0xac, 0x21, 0x56, 0x73, 0x22, 0xa1, 0x22,
-	0xc1, 0x17, 0xd6, 0x10, 0xa3, 0x63, 0x28, 0xd0, 0xb0, 0x4e, 0x75, 0xa1, 0xa6, 0xec, 0x94, 0x1b,
-	0xdb, 0xf5, 0xa8, 0xfb, 0xfa, 0x9c, 0x5e, 0x4c, 0x99, 0x6c, 0x14, 0x60, 0xf1, 0x6c, 0xe8, 0xf1,
-	0x89, 0xd1, 0x84, 0xf5, 0x67, 0x2e, 0xe3, 0x4d, 0xd2, 0x7b, 0x65, 0x71, 0xdb, 0x31, 0x31, 0xf3,
-	0x28, 0x61, 0x18, 0xfd, 0x0b, 0x85, 0x9e, 0x10, 0x60, 0xaa, 0x52, 0xcb, 0xed, 0x94, 0x1b, 0x2b,
-	0x29, 0x61, 0x53, 0xc6, 0x8d, 0x03, 0xc8, 0x87, 0x10, 0x5a, 0x86, 0xec, 0x79, 0x2b, 0xea, 0x31,
-	0xeb, 0xb6, 0xd0, 0x06, 0xe4, 0x1d, 0x6c, 0x0d, 0xb8, 0x13, 0x35, 0x17, 0x9d, 0x8c, 0x13, 0x50,
-	0xdb, 0xd1, 0xe0, 0x4e, 0x29, 0xe1, 0x96, 0x4b, 0x92, 0x61, 0xe9, 0x00, 0x91, 0xf0, 0x79, 0x2b,
-	0xbc, 0xbb, 0x64, 0xce, 0x20, 0xc6, 0x16, 0x6c, 0xce, 0xe1, 0x86, 0x55, 0x1b, 0x36, 0xac, 0x34,
-	0x07, 0x03, 0x6a, 0x5b, 0x1c, 0x4b, 0xbd, 0x36, 0x20, 0x5b, 0xe6, 0x89, 0xe7, 0xc3, 0x8c, 0xcb,
-	0x9e, 0xfe, 0x8c, 0x7b, 0x8a, 0xa5, 0x52, 0x74, 0x73, 0xd5, 0x4e, 0x15, 0xc8, 0x82, 0xea, 0x6f,
-	0x4b, 0xbf, 0xb7, 0xfa, 0x3e, 0x54, 0x13, 0x4a, 0x34, 0xea, 0x4b, 0x58, 0x9b, 0xad, 0x30, 0x44,
-	0x65, 0x89, 0xc6, 0x5d, 0x25, 0x86, 0xa9, 0x26, 0xb2, 0xd3, 0x83, 0x60, 0xc6, 0x87, 0x1c, 0x6c,
-	0xde, 0xca, 0x40, 0x0f, 0x61, 0x01, 0x93, 0xb1, 0xbc, 0x63, 0xf7, 0xfe, 0x3b, 0xea, 0x67, 0x64,
-	0xcc, 0xce, 0x08, 0xf7, 0x27, 0xa6, 0x60, 0xa2, 0x7f, 0x20, 0x3f, 0xa4, 0x23, 0xc2, 0x99, 0x9a,
-	0x15, 0x1a, 0xcb, 0xb1, 0xc6, 0xf3, 0x00, 0x36, 0xa3, 0x28, 0xda, 0x4b, 0xf6, 0x28, 0x27, 0x12,
-	0xd7, 0x52, 0x7b, 0x74, 0xe9, 0x61, 0x3b, 0xde, 0x25, 0xf4, 0x12, 0xca, 0x16, 0x21, 0x94, 0x5b,
-	0x72, 0xa7, 0x03, 0xca, 0xd1, 0x4f, 0xd4, 0xd7, 0x4c, 0x58, 0x61, 0x99, 0xb3, 0x3a, 0xda, 0x7f,
-	0x50, 0x8a, 0x1b, 0x40, 0x55, 0xc8, 0xbd, 0xc5, 0x93, 0x68, 0x4d, 0x83, 0x4f, 0xb4, 0x0e, 0x8b,
-	0x63, 0x6b, 0x30, 0xc2, 0xd1, 0x9a, 0x86, 0x87, 0x93, 0xec, 0xff, 0x8a, 0xf6, 0x00, 0xaa, 0x69,
-	0xe5, 0x5f, 0xe1, 0x1b, 0x0e, 0x2c, 0x8a, 0x79, 0xa0, 0xbf, 0x61, 0x39, 0x79, 0x64, 0xcf, 0xe2,
-	0x4e, 0xc4, 0x5f, 0x8a, 0xd1, 0xb6, 0xc5, 0x1d, 0xb4, 0x05, 0x25, 0x87, 0x32, 0x1e, 0x66, 0x44,
-	0x8e, 0x10, 0x00, 0x32, 0xe8, 0x63, 0xab, 0xd7, 0xa1, 0x64, 0x30, 0x11, 0x6e, 0x50, 0x34, 0x8b,
-	0x01, 0x70, 0x41, 0x06, 0x13, 0xc3, 0x07, 0x48, 0x06, 0xfa, 0x5b, 0xae, 0xab, 0x41, 0xd9, 0xc3,
-	0xfe, 0xd0, 0x65, 0x4c, 0xbc, 0x45, 0x68, 0x3f, 0xb3, 0x50, 0xe3, 0x31, 0x54, 0x42, 0xaf, 0xf3,
-	0xc5, 0x7c, 0xd0, 0x31, 0x14, 0xa5, 0xf7, 0x21, 0x35, 0x7e, 0xb4, 0x94, 0x1d, 0x6a, 0xc9, 0xaa,
-	0x84, 0x16, 0x94, 0x69, 0x7c, 0xce, 0x42, 0x65, 0xd6, 0xae, 0xd0, 0x53, 0xd8, 0x78, 0x82, 0xf9,
-	0x3c, 0x37, 0x4e, 0x91, 0xb5, 0x3b, 0xfd, 0xce, 0xc8, 0xa0, 0x26, 0x54, 0x66, 0xfd, 0xed, 0x06,
-	0xff, 0x8f, 0xf8, 0x3c, 0xcf, 0x06, 0x8d, 0xcc, 0x81, 0x82, 0x9a, 0x50, 0x94, 0xeb, 0x36, 0xd3,
-	0x55, 0xea, 0x97, 0xaf, 0x6d, 0xce, 0x89, 0x48, 0x11, 0xf4, 0x1a, 0x56, 0x6f, 0x98, 0x16, 0x4a,
-	0xdc, 0xe7, 0x36, 0x33, 0xd4, 0x8c, 0xbb, 0x52, 0xa4, 0xfa, 0xa3, 0xed, 0xab, 0x6b, 0x5d, 0xf9,
-	0x7a, 0xad, 0x67, 0xde, 0x4f, 0x75, 0xe5, 0x6a, 0xaa, 0x2b, 0x5f, 0xa6, 0xba, 0xf2, 0x6d, 0xaa,
-	0x2b, 0x1f, 0xbf, 0xeb, 0x99, 0x6e, 0x5e, 0xfc, 0xbb, 0x1d, 0xfd, 0x08, 0x00, 0x00, 0xff, 0xff,
-	0xb9, 0xc2, 0x87, 0x92, 0x22, 0x07, 0x00, 0x00,
+	// 832 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xcb, 0x8e, 0x1b, 0x45,
+	0x14, 0x75, 0xdb, 0x19, 0x3f, 0xae, 0x9d, 0xb1, 0x53, 0x8e, 0xa2, 0x9e, 0x4e, 0x68, 0x4c, 0x21,
+	0xd0, 0x44, 0x4a, 0x1c, 0xe2, 0x48, 0x01, 0x45, 0xe2, 0xe1, 0xc4, 0x03, 0x8c, 0x04, 0xc4, 0xea,
+	0x11, 0x62, 0x83, 0x64, 0x95, 0xdb, 0x85, 0xbb, 0x85, 0x5d, 0xd5, 0x54, 0x55, 0x5b, 0xf2, 0x2e,
+	0x0b, 0x3e, 0x80, 0x0f, 0x60, 0xc9, 0x07, 0xf0, 0x19, 0x59, 0xb2, 0x64, 0x49, 0xcc, 0x8f, 0xa0,
+	0xae, 0x7e, 0xa6, 0x33, 0x9e, 0x61, 0x24, 0xd8, 0xf5, 0xbd, 0x75, 0xef, 0xa9, 0xfb, 0x38, 0x3e,
+	0x65, 0x68, 0x91, 0xc0, 0x1f, 0x06, 0x82, 0x2b, 0x8e, 0x1a, 0x9b, 0x87, 0x73, 0xaa, 0xc8, 0x43,
+	0xeb, 0xfe, 0xd2, 0x57, 0x5e, 0x38, 0x1f, 0xba, 0x7c, 0xfd, 0x60, 0xc9, 0x97, 0xfc, 0x81, 0x3e,
+	0x9f, 0x87, 0x3f, 0x68, 0x4b, 0x1b, 0xfa, 0x2b, 0xce, 0xc3, 0xcf, 0xa0, 0x3f, 0xa1, 0x1b, 0xdf,
+	0xa5, 0xd3, 0x55, 0xb8, 0xf4, 0xd9, 0xf3, 0x40, 0xf9, 0x9c, 0x49, 0x74, 0x0f, 0x50, 0x20, 0xe8,
+	0x4c, 0x2a, 0x22, 0xd4, 0x4c, 0xd0, 0x9f, 0x42, 0x5f, 0xd0, 0x85, 0x69, 0x0c, 0x8c, 0xe3, 0xa6,
+	0xd3, 0x0b, 0x04, 0x3d, 0x8b, 0x0e, 0x9c, 0xc4, 0x8f, 0x7f, 0x35, 0xa0, 0x17, 0xa3, 0x8c, 0x95,
+	0x12, 0xfe, 0x3c, 0x54, 0x54, 0xa2, 0x53, 0x00, 0x92, 0x59, 0xa6, 0x31, 0xa8, 0x1d, 0xb7, 0x47,
+	0x77, 0x87, 0x49, 0x99, 0xc3, 0x72, 0xf8, 0x30, 0xff, 0x3c, 0x61, 0x4a, 0x6c, 0x9d, 0x42, 0xb2,
+	0xf5, 0x31, 0x74, 0x4b, 0xc7, 0xa8, 0x07, 0xb5, 0x1f, 0xe9, 0x56, 0x57, 0xd4, 0x72, 0xa2, 0x4f,
+	0x74, 0x13, 0x0e, 0x36, 0x64, 0x15, 0x52, 0xb3, 0xaa, 0x7d, 0xb1, 0xf1, 0xa4, 0xfa, 0x91, 0x81,
+	0x7f, 0x33, 0xa0, 0xeb, 0xd0, 0xa5, 0x2f, 0x15, 0x15, 0x51, 0xcd, 0x54, 0x2a, 0x64, 0x42, 0x63,
+	0x43, 0x85, 0xf4, 0x39, 0x4b, 0x30, 0x52, 0x13, 0x59, 0xd0, 0xa4, 0x6c, 0x11, 0x70, 0x9f, 0xa9,
+	0x04, 0x2a, 0xb3, 0xd1, 0xbb, 0x70, 0x5d, 0x50, 0xc9, 0x43, 0xe1, 0xd2, 0x19, 0x23, 0x6b, 0x6a,
+	0xd6, 0x74, 0x40, 0x27, 0x75, 0x7e, 0x43, 0xd6, 0x14, 0x3d, 0x86, 0x06, 0x8f, 0xc7, 0x68, 0x5e,
+	0x1b, 0x18, 0xc7, 0xed, 0xd1, 0x9d, 0x52, 0xd7, 0xaf, 0x8d, 0xda, 0x49, 0x83, 0x71, 0x03, 0x0e,
+	0x4e, 0xd6, 0x81, 0xda, 0xe2, 0x31, 0xdc, 0xfc, 0xca, 0x97, 0x6a, 0xcc, 0x16, 0xdf, 0x11, 0xe5,
+	0x7a, 0x0e, 0x95, 0x01, 0x67, 0x92, 0xa2, 0xbb, 0xd0, 0x58, 0x68, 0x80, 0x74, 0x9c, 0xdd, 0x12,
+	0xb0, 0x93, 0x9e, 0xe3, 0xdf, 0x0d, 0xa8, 0xc7, 0x3e, 0x74, 0x08, 0xd5, 0xd3, 0x49, 0xd2, 0x64,
+	0xd5, 0x9f, 0xa0, 0x5b, 0x50, 0xf7, 0x28, 0x59, 0x29, 0x2f, 0xe9, 0x2e, 0xb1, 0xd0, 0xa7, 0xaf,
+	0xed, 0xab, 0xa6, 0x2f, 0x78, 0xbb, 0x74, 0xc1, 0xff, 0xb9, 0xa5, 0x27, 0x60, 0x4e, 0x13, 0x62,
+	0x3d, 0xe3, 0x4c, 0x11, 0x9f, 0xe5, 0xdb, 0xb2, 0x01, 0x92, 0xce, 0x4e, 0x27, 0x71, 0xf3, 0x2d,
+	0xa7, 0xe0, 0xc1, 0xb7, 0xe1, 0xe8, 0x9c, 0xdc, 0x78, 0x6c, 0xd8, 0x85, 0xee, 0x78, 0xb5, 0xe2,
+	0x2e, 0x51, 0x34, 0xc5, 0x9b, 0x02, 0x72, 0xd3, 0x38, 0x4d, 0x6f, 0x2a, 0x55, 0x3a, 0xd4, 0x77,
+	0xb2, 0x9e, 0x33, 0xa8, 0x52, 0xba, 0x73, 0xc3, 0x2d, 0x15, 0x28, 0xa3, 0xea, 0xf7, 0x85, 0x5f,
+	0x5a, 0xfd, 0x12, 0x7a, 0x79, 0x4a, 0xb2, 0xeb, 0x33, 0xe8, 0x17, 0x2b, 0x8c, 0xbd, 0x69, 0x89,
+	0xf8, 0xa2, 0x12, 0xe3, 0x50, 0x07, 0xb9, 0xe5, 0x41, 0x48, 0xfc, 0x73, 0x0d, 0x8e, 0xf6, 0x66,
+	0xa0, 0xcf, 0xe0, 0x1a, 0x65, 0x9b, 0xf4, 0x8e, 0x7b, 0x97, 0xdf, 0x31, 0x3c, 0x61, 0x9b, 0x84,
+	0x07, 0x3a, 0x13, 0xbd, 0x0f, 0xf5, 0x35, 0x0f, 0x99, 0x92, 0x66, 0x55, 0x63, 0x1c, 0x66, 0x18,
+	0x5f, 0x47, 0x6e, 0x27, 0x39, 0x45, 0xf7, 0x73, 0x22, 0xc7, 0x3c, 0xeb, 0x97, 0x78, 0x76, 0x16,
+	0x50, 0x37, 0x23, 0x33, 0xfa, 0x16, 0xda, 0x84, 0x31, 0xae, 0x48, 0xfa, 0xa3, 0x8a, 0x52, 0x1e,
+	0xfd, 0x8b, 0xfa, 0xc6, 0x79, 0x56, 0x5c, 0x66, 0x11, 0xc7, 0xfa, 0x10, 0x5a, 0x59, 0x03, 0x57,
+	0x61, 0xaa, 0xf5, 0x09, 0xf4, 0xca, 0xc8, 0x57, 0x62, 0xba, 0x07, 0x07, 0x7a, 0x1e, 0xe8, 0x3d,
+	0x38, 0xcc, 0x97, 0x1c, 0x10, 0xe5, 0x25, 0xf9, 0xd7, 0x33, 0xef, 0x94, 0x28, 0x0f, 0xdd, 0x86,
+	0x96, 0xc7, 0xa5, 0x8a, 0x23, 0x12, 0x49, 0x8a, 0x1c, 0xe9, 0xa1, 0xa0, 0x64, 0x31, 0xe3, 0x6c,
+	0xb5, 0xd5, 0x72, 0xd4, 0x74, 0x9a, 0x91, 0xe3, 0x39, 0x5b, 0x6d, 0xb1, 0x00, 0xc8, 0x07, 0xfa,
+	0x9f, 0x5c, 0x37, 0x80, 0x76, 0x40, 0xc5, 0xda, 0x97, 0x52, 0xef, 0x22, 0xd6, 0xbf, 0xa2, 0x6b,
+	0xf4, 0x39, 0x74, 0x62, 0xb1, 0x15, 0x7a, 0x3e, 0xe8, 0x31, 0x34, 0x53, 0xf1, 0x45, 0x66, 0xb6,
+	0xb4, 0x92, 0x1e, 0x5b, 0x39, 0x55, 0x62, 0x0d, 0xac, 0x8c, 0x5e, 0xd4, 0xa0, 0x53, 0xd4, 0x4b,
+	0xf4, 0x25, 0xdc, 0xfa, 0x82, 0xaa, 0xf3, 0x5e, 0xab, 0x52, 0xb2, 0x75, 0xa1, 0xe0, 0xe2, 0x0a,
+	0x7a, 0x0a, 0xfd, 0x0c, 0xa9, 0xf0, 0x62, 0x95, 0x61, 0x8e, 0xf6, 0xbe, 0x56, 0xb8, 0x82, 0xc6,
+	0xd0, 0x29, 0x8a, 0xf4, 0x1b, 0xc9, 0x6f, 0x65, 0xf6, 0x79, 0x5a, 0x8e, 0x2b, 0x1f, 0x18, 0x68,
+	0x0c, 0xcd, 0x94, 0xb2, 0x85, 0xc9, 0x94, 0xd4, 0xa3, 0x50, 0x45, 0x99, 0xdf, 0xb8, 0x82, 0xbe,
+	0x87, 0x1b, 0x6f, 0x08, 0x1f, 0xca, 0x15, 0x6c, 0x9f, 0xa0, 0x5a, 0xf8, 0xa2, 0x90, 0x14, 0xfd,
+	0xe9, 0x9d, 0x97, 0xaf, 0x6c, 0xe3, 0xcf, 0x57, 0x76, 0xe5, 0xc5, 0xce, 0x36, 0x5e, 0xee, 0x6c,
+	0xe3, 0x8f, 0x9d, 0x6d, 0xfc, 0xb5, 0xb3, 0x8d, 0x5f, 0xfe, 0xb6, 0x2b, 0xf3, 0xba, 0xfe, 0x07,
+	0xf1, 0xe8, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xca, 0x94, 0xd8, 0x13, 0x86, 0x08, 0x00, 0x00,
 }

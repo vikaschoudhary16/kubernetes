@@ -3527,7 +3527,10 @@ type NodeStatus struct {
 	Config *NodeConfigStatus
 	// List of extended resources
 	// +optional
-	ComputeResources []ComputeResource
+	ComputeResourceCapacity []ComputeResource
+	// List of extended resources
+	// +optional
+	ComputeResourceAllocatable []ComputeResource
 }
 
 type ComputeResource struct {

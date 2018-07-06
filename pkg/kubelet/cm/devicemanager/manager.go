@@ -84,9 +84,10 @@ type ManagerImpl struct {
 	allocatedDevices map[string]sets.String
 
 	// podDevices contains pod to allocated device mapping.
-	podDevices        podDevices
-	pluginOpts        map[string]*pluginapi.DevicePluginOptions
-	checkpointManager checkpointmanager.CheckpointManager
+	podDevices         podDevices
+	pluginOpts         map[string]*pluginapi.DevicePluginOptions
+	resourceAttributes map[string]*pluginapi.DeviceAttributes
+	checkpointManager  checkpointmanager.CheckpointManager
 }
 
 type sourcesReadyStub struct{}
@@ -361,6 +362,14 @@ func (m *ManagerImpl) addEndpoint(r *pluginapi.RegisterRequest) {
 		glog.Errorf("Failed to dial device plugin with request %v: %v", r, err)
 		return
 	}
+
+	attributes, err := e.client.GetDeviceAttributes(context.Background(), &pluginapi.Empty{})
+	if err != nil {
+		glog.Errorf("Failed to get device attributes: %v", err)
+		return
+	}
+	m.resourceAttributes[r.ResourceName] = attributes
+
 	m.mutex.Lock()
 	if r.Options != nil {
 		m.pluginOpts[r.ResourceName] = r.Options
@@ -422,11 +431,10 @@ func (m *ManagerImpl) markResourceUnhealthy(resourceName string) {
 // cm.UpdatePluginResource() run during predicate Admit guarantees we adjust nodeinfo
 // capacity for already allocated pods so that they can continue to run. However, new pods
 // requiring device plugin resources will not be scheduled till device plugin re-registers.
-func (m *ManagerImpl) GetCapacity() (v1.ResourceList, v1.ResourceList, []string) {
+func (m *ManagerImpl) GetCapacity() ([]v1.ComputeResource, []string) {
 	needsUpdateCheckpoint := false
-	var capacity = v1.ResourceList{}
-	var allocatable = v1.ResourceList{}
 	deletedResources := sets.NewString()
+	var capacity []v1.ComputeResource
 	m.mutex.Lock()
 	for resourceName, devices := range m.healthyDevices {
 		e, ok := m.endpoints[resourceName]
@@ -442,8 +450,20 @@ func (m *ManagerImpl) GetCapacity() (v1.ResourceList, v1.ResourceList, []string)
 			deletedResources.Insert(resourceName)
 			needsUpdateCheckpoint = true
 		} else {
-			capacity[v1.ResourceName(resourceName)] = *resource.NewQuantity(int64(devices.Len()), resource.DecimalSI)
-			allocatable[v1.ResourceName(resourceName)] = *resource.NewQuantity(int64(devices.Len()), resource.DecimalSI)
+			capacity = append(capacity, v1.ComputeResource{
+				ResourceName: resourceName,
+				Devices:      devices,
+				Units:        devices.Len(),
+				Properties:   m.resourceAttributes[resourceName].Attributes,
+			})
+			allocatable = append(allocatable, v1.ComputeResource{
+				ResourceName: resourceName,
+				Devices:      devices,
+				Units:        devices.Len(),
+				Properties:   m.resourceAttributes[resourceName].Attributes,
+			})
+			//capacity[v1.ResourceName(resourceName)] = *resource.NewQuantity(int64(devices.Len()), resource.DecimalSI)
+			//allocatable[v1.ResourceName(resourceName)] = *resource.NewQuantity(int64(devices.Len()), resource.DecimalSI)
 		}
 	}
 	for resourceName, devices := range m.unhealthyDevices {
@@ -457,10 +477,23 @@ func (m *ManagerImpl) GetCapacity() (v1.ResourceList, v1.ResourceList, []string)
 			deletedResources.Insert(resourceName)
 			needsUpdateCheckpoint = true
 		} else {
-			capacityCount := capacity[v1.ResourceName(resourceName)]
-			unhealthyCount := *resource.NewQuantity(int64(devices.Len()), resource.DecimalSI)
-			capacityCount.Add(unhealthyCount)
-			capacity[v1.ResourceName(resourceName)] = capacityCount
+			var found bool
+			for _, cr = range capacity {
+				if cr.ResourceName == resourceName {
+					cr.Units = cr.Units + devices.Len()
+					cr.Devices = append(cr.Devices, devices)
+					found = true
+					break
+				}
+			}
+			if !found {
+				capacity = append(capacity, v1.ComputeResource{
+					ResourceName: resourceName,
+					Units:        devices.Len(),
+					Devices:      devices,
+					Properties:   m.resourceAttributes[resourceName].Attributes,
+				})
+			}
 		}
 	}
 	m.mutex.Unlock()

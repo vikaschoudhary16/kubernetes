@@ -3962,7 +3962,10 @@ type NodeStatus struct {
 	Config *NodeConfigStatus `json:"config,omitempty" protobuf:"bytes,11,opt,name=config"`
 	// List of extended resources
 	// +optional
-	ComputeResources []ComputeResource `json:"computeResources,omitempty" protobuf:"bytes,12,rep,name=computeResources"`
+	ComputeResourceCapacity []ComputeResource `json:"computeResourceCapacity,omitempty" protobuf:"bytes,12,rep,name=computeResourceCapacity"`
+	// List of extended resources
+	// +optional
+	ComputeResourceAllocatable []ComputeResource `json:"computeResourceAllocatable,omitempty" protobuf:"bytes,12,rep,name=computeResourceAllocatable"`
 }
 
 type ComputeResource struct {

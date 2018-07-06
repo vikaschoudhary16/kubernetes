@@ -68,12 +68,13 @@ type ContainerManager interface {
 	GetNodeAllocatableReservation() v1.ResourceList
 
 	// GetCapacity returns the amount of compute resources tracked by container manager available on the node.
-	GetCapacity() v1.ResourceList
+	GetCapacity() []v1.ResourceList
 
 	// GetDevicePluginResourceCapacity returns the node capacity (amount of total device plugin resources),
 	// node allocatable (amount of total healthy resources reported by device plugin),
 	// and inactive device plugin resources previously registered on the node.
-	GetDevicePluginResourceCapacity() (v1.ResourceList, v1.ResourceList, []string)
+	//GetDevicePluginResourceCapacity() (v1.ResourceList, v1.ResourceList, []string)
+	GetDevicePluginResourceCapacity() ([]v1.ComputeResource, []v1.ComputeResource, []string)
 
 	// UpdateQOSCgroups performs housekeeping updates to ensure that the top
 	// level QoS containers have their desired state in a thread-safe way
