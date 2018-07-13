@@ -1884,6 +1884,14 @@ type ResourceRequirements struct {
 	Requests ResourceList
 }
 
+// DeviceList contains list of allocated devices.
+type DeviceList struct {
+	// +optional
+	Count int32
+	// +optional
+	UIDs []types.UID
+}
+
 // Container represents a single container that is expected to be run on the host.
 type Container struct {
 	// Required: This must be a DNS_LABEL.  Each container in a pod must
@@ -1955,6 +1963,10 @@ type Container struct {
 	StdinOnce bool
 	// +optional
 	TTY bool
+	// Compute resources which are resolved and recorded by the scheduler along with count. Actual device ids will be
+	// allocated by kubelet
+	// +optional
+	AllocatedComputeResources map[string]DeviceList
 }
 
 // Handler defines a specific action that should be taken
@@ -3513,6 +3525,24 @@ type NodeStatus struct {
 	// Status of the config assigned to the node via the dynamic Kubelet config feature.
 	// +optional
 	Config *NodeConfigStatus
+	// List of extended resources
+	// +optional
+	ComputeResourceCapacity []ComputeResource
+	// List of extended resources
+	// +optional
+	ComputeResourceAllocatable []ComputeResource
+}
+
+type ComputeResource struct {
+	// raw resource name. E.g.: nvidia.com/gpu
+	ResourceName string
+	// resource metadata received from device plugin.
+	// e.g., gpuType: k80, zone: us-west1-b
+	Properties map[string]string
+	// list of deviceIds received from device plugin.
+	// e.g., ["nvida0", "nvidia1"]
+	Devices []string
+	Units   resource.Quantity
 }
 
 type UniqueVolumeName string

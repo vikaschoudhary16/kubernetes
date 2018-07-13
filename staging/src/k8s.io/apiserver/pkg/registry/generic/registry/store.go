@@ -527,7 +527,6 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	if err != nil {
 		return nil, false, err
 	}
-
 	var (
 		creatingObj runtime.Object
 		creating    = false

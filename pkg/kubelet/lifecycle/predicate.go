@@ -30,6 +30,7 @@ import (
 )
 
 type getNodeAnyWayFuncType func() (*v1.Node, error)
+type listResClassesAnyWayFuncType func() ([]*v1.ResourceClass, error)
 
 type pluginResourceUpdateFuncType func(*schedulercache.NodeInfo, *PodAdmitAttributes) error
 
@@ -42,14 +43,16 @@ type AdmissionFailureHandler interface {
 type predicateAdmitHandler struct {
 	getNodeAnyWayFunc        getNodeAnyWayFuncType
 	pluginResourceUpdateFunc pluginResourceUpdateFuncType
+	listResClassesAnyWayFunc listResClassesAnyWayFuncType
 	admissionFailureHandler  AdmissionFailureHandler
 }
 
 var _ PodAdmitHandler = &predicateAdmitHandler{}
 
-func NewPredicateAdmitHandler(getNodeAnyWayFunc getNodeAnyWayFuncType, admissionFailureHandler AdmissionFailureHandler, pluginResourceUpdateFunc pluginResourceUpdateFuncType) *predicateAdmitHandler {
+func NewPredicateAdmitHandler(getNodeAnyWayFunc getNodeAnyWayFuncType, listResClassesAnyWayFunc listResClassesAnyWayFuncType, admissionFailureHandler AdmissionFailureHandler, pluginResourceUpdateFunc pluginResourceUpdateFuncType) *predicateAdmitHandler {
 	return &predicateAdmitHandler{
 		getNodeAnyWayFunc,
+		listResClassesAnyWayFunc,
 		pluginResourceUpdateFunc,
 		admissionFailureHandler,
 	}
@@ -65,10 +68,19 @@ func (w *predicateAdmitHandler) Admit(attrs *PodAdmitAttributes) PodAdmitResult 
 			Message: "Kubelet cannot get node info.",
 		}
 	}
+	rClasses, err := w.listResClassesAnyWayFunc()
+	if err != nil {
+		glog.Errorf("Cannot list Res Classes: %v", err)
+		return PodAdmitResult{
+			Admit:   false,
+			Reason:  "InvalidNodeInfo",
+			Message: "Kubelet cannot list resource class info.",
+		}
+	}
 	pod := attrs.Pod
 	pods := attrs.OtherPods
 	nodeInfo := schedulercache.NewNodeInfo(pods...)
-	nodeInfo.SetNode(node)
+	nodeInfo.SetNode(node, pods...)
 	// ensure the node has enough plugin resources for that required in pods
 	if err = w.pluginResourceUpdateFunc(nodeInfo, attrs); err != nil {
 		message := fmt.Sprintf("Update plugin resources failed due to %v, which is unexpected.", err)
@@ -89,6 +101,31 @@ func (w *predicateAdmitHandler) Admit(attrs *PodAdmitAttributes) PodAdmitResult 
 	// not fail admission while it should. This issue will be addressed with
 	// the Resource Class API in the future.
 	podWithoutMissingExtendedResources := removeMissingExtendedResources(pod, nodeInfo)
+
+	for _, rClass := range rClasses {
+		_, err := nodeInfo.AddResourceClass(rClass, node)
+		if err != nil {
+			message := fmt.Sprintf("GeneralPredicates failed due to %v, which is unexpected.", err)
+			glog.Warningf("Failed to admit pod %v - %s", format.Pod(pod), message)
+			return PodAdmitResult{
+				Admit:   false,
+				Reason:  "UnexpectedAdmissionError",
+				Message: message,
+			}
+		}
+	}
+	for _, pod := range pods {
+		_, _, err := nodeInfo.OnAddUpdateResClassToDeviceMappingForPod(pod)
+		if err != nil {
+			message := fmt.Sprintf("GeneralPredicates failed due to %v, which is unexpected.", err)
+			glog.Warningf("Failed to admit pod %v - %s", format.Pod(pod), message)
+			return PodAdmitResult{
+				Admit:   false,
+				Reason:  "UnexpectedAdmissionError",
+				Message: message,
+			}
+		}
+	}
 
 	fit, reasons, err := predicates.GeneralPredicates(podWithoutMissingExtendedResources, nil, nodeInfo)
 	if err != nil {
@@ -165,6 +202,7 @@ func removeMissingExtendedResources(pod *v1.Pod, nodeInfo *schedulercache.NodeIn
 		for rName, rQuant := range c.Resources.Requests {
 			if v1helper.IsExtendedResourceName(rName) {
 				if _, found := nodeInfo.AllocatableResource().ScalarResources[rName]; !found {
+					// TODO(vikasc): Also check if a resource class with name, rName exists and has property to indicate that it is a cluster-level resource
 					continue
 				}
 			}

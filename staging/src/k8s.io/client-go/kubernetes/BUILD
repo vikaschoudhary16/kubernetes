@@ -79,6 +79,7 @@ filegroup(
         "//staging/src/k8s.io/client-go/kubernetes/typed/batch/v1beta1:all-srcs",
         "//staging/src/k8s.io/client-go/kubernetes/typed/batch/v2alpha1:all-srcs",
         "//staging/src/k8s.io/client-go/kubernetes/typed/certificates/v1beta1:all-srcs",
+        "//staging/src/k8s.io/client-go/kubernetes/typed/computeresources/v1alpha1:all-srcs",
         "//staging/src/k8s.io/client-go/kubernetes/typed/coordination/v1beta1:all-srcs",
         "//staging/src/k8s.io/client-go/kubernetes/typed/core/v1:all-srcs",
         "//staging/src/k8s.io/client-go/kubernetes/typed/events/v1beta1:all-srcs",

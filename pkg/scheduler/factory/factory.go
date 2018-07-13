@@ -27,6 +27,7 @@ import (
 
 	"github.com/golang/glog"
 
+	resapi "k8s.io/api/computeresources/v1alpha1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,12 +40,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	appsinformers "k8s.io/client-go/informers/apps/v1beta1"
+	resClassInformers "k8s.io/client-go/informers/computeresources/v1alpha1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	extensionsinformers "k8s.io/client-go/informers/extensions/v1beta1"
 	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 	storageinformers "k8s.io/client-go/informers/storage/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	appslisters "k8s.io/client-go/listers/apps/v1beta1"
+	reslisters "k8s.io/client-go/listers/computeresources/v1alpha1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	extensionslisters "k8s.io/client-go/listers/extensions/v1beta1"
 	policylisters "k8s.io/client-go/listers/policy/v1beta1"
@@ -106,6 +109,8 @@ type configFactory struct {
 	pdbLister policylisters.PodDisruptionBudgetLister
 	// a means to list all StorageClasses
 	storageClassLister storagelisters.StorageClassLister
+	// a means to list all ResourceClasses
+	resClassLister reslisters.ResourceClassLister
 
 	// Close this to stop all reflectors
 	StopEverything chan struct{}
@@ -154,17 +159,26 @@ func NewConfigFactory(
 	serviceInformer coreinformers.ServiceInformer,
 	pdbInformer policyinformers.PodDisruptionBudgetInformer,
 	storageClassInformer storageinformers.StorageClassInformer,
+	resClassInformer resClassInformers.ResourceClassInformer,
 	hardPodAffinitySymmetricWeight int32,
 	enableEquivalenceClassCache bool,
 	disablePreemption bool,
 ) scheduler.Configurator {
 	stopEverything := make(chan struct{})
 	schedulerCache := schedulercache.New(30*time.Second, stopEverything)
+	err := schedulerCache.AddClient(client)
+	if err != nil {
+		glog.Errorf("Error on client addition: %v", err)
+	}
 
 	// storageClassInformer is only enabled through VolumeScheduling feature gate
 	var storageClassLister storagelisters.StorageClassLister
 	if storageClassInformer != nil {
 		storageClassLister = storageClassInformer.Lister()
+	}
+	var resClassLister reslisters.ResourceClassLister
+	if resClassInformer != nil {
+		resClassLister = resClassInformer.Lister()
 	}
 
 	c := &configFactory{
@@ -179,6 +193,7 @@ func NewConfigFactory(
 		statefulSetLister:              statefulSetInformer.Lister(),
 		pdbLister:                      pdbInformer.Lister(),
 		storageClassLister:             storageClassLister,
+		resClassLister:                 resClassLister,
 		schedulerCache:                 schedulerCache,
 		StopEverything:                 stopEverything,
 		schedulerName:                  schedulerName,
@@ -250,6 +265,15 @@ func NewConfigFactory(
 		},
 	)
 	c.nodeLister = nodeInformer.Lister()
+
+	resClassInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: c.addResourceClassToCache,
+			//TODO(vikasc): Implement
+			//UpdateFunc: c.updateResourceClassInCache,
+			//DeleteFunc: c.deleteResourceClassFromCache,
+		},
+	)
 
 	pdbInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -753,6 +777,18 @@ func (c *configFactory) invalidateCachedPredicatesOnDeletePod(pod *v1.Pod) {
 					pod.Spec.NodeName, noDiskConflictSet)
 			}
 		}
+	}
+}
+
+func (c *ConfigFactory) addResourceClassToCache(obj interface{}) {
+	rClass, ok := obj.(*resapi.ResourceClass)
+	if !ok {
+		glog.Errorf("cannot convert to *v1.ResourceClass: %v", obj)
+		return
+	}
+
+	if err := c.schedulerCache.AddResourceClass(rClass); err != nil {
+		glog.Errorf("scheduler cache AddResourceClass failed: %v", err)
 	}
 }
 

@@ -19,14 +19,23 @@ package cache
 import (
 	"errors"
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/golang/glog"
 
+	computeresources_v1alpha1 "k8s.io/api/computeresources/v1alpha1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	priorityutil "k8s.io/kubernetes/pkg/scheduler/algorithm/priorities/util"
 	"k8s.io/kubernetes/pkg/scheduler/util"
 )
@@ -36,6 +45,30 @@ var (
 	generation    int64
 )
 
+type DeviceInfo struct {
+	requested   int32
+	allocatable int32
+	//groupResourceName     string
+	//remainderFromGroup    int32
+	//subResName            string
+	//subResQuantity        int32
+	priority              int32
+	targetResourceClasses map[string]*ResourceClassInfo
+}
+
+type ResourceClassInfo struct {
+	resClass    *computeresources_v1alpha1.ResourceClass
+	Requested   int32
+	Allocatable int32
+	//	subResCount int32
+}
+
+type ResourceClassDeviceAllocation struct {
+	rClassName     string
+	deviceName     string
+	deviceQuantity int32
+}
+
 // NodeInfo is node level aggregated information.
 type NodeInfo struct {
 	// Overall node information.
@@ -44,6 +77,7 @@ type NodeInfo struct {
 	pods             []*v1.Pod
 	podsWithAffinity []*v1.Pod
 	usedPorts        util.HostPortInfo
+	kubeClient       clientset.Interface
 
 	// Total requested resource of all pods on this node.
 	// It includes assumed pods which scheduler sends binding to apiserver but
@@ -53,6 +87,9 @@ type NodeInfo struct {
 	// We store allocatedResources (which is Node.Status.Allocatable.*) explicitly
 	// as int64, to avoid conversions and accessing map.
 	allocatableResource *Resource
+
+	devices    map[string]*DeviceInfo
+	resClasses map[string]*ResourceClassInfo
 
 	// Cached taints of the node for faster lookup.
 	taints    []v1.Taint
@@ -170,6 +207,16 @@ func (r *Resource) Add(rl v1.ResourceList) {
 	}
 }
 
+// AddComputeResources adds compute resources into Resource.
+func (r *Resource) AddComputeResources(resList []v1.ComputeResource) {
+	if r == nil {
+		return
+	}
+	for _, res := range resList {
+		r.AddScalar(res.Name, res.Units.Value())
+	}
+}
+
 // ResourceList returns a resource list of this resource.
 func (r *Resource) ResourceList() v1.ResourceList {
 	result := v1.ResourceList{
@@ -250,6 +297,92 @@ func (r *Resource) SetMaxResource(rl v1.ResourceList) {
 	}
 }
 
+// Sets the overall resourceclass information.
+func (n *NodeInfo) AddResourceClass(rClass *v1.ResourceClass, node *v1.Node) (*ResourceClassInfo, error) {
+	fmt.Println(file_line(), "Entry ")
+	rcSpec := rClass.Spec
+	var err error
+	rcInfo := &ResourceClassInfo{}
+	rcInfo.resClass = rClass
+	n.resClasses[rClass.Name] = rcInfo
+	fmt.Printf("\n%s node.Status  %v \n", file_line(), node)
+	for _, device := range node.Status.ComputeResources {
+		//fmt.Printf( "device=> %+v \n", device)
+		fmt.Println(file_line(), "devicesCount ", len(node.Status.ComputeResources))
+		_, ok := n.devices[device.Name]
+		if !ok {
+			resClasses := make(map[string]*ResourceClassInfo)
+			n.devices[device.Name] = &DeviceInfo{
+				allocatable:           int32(device.Units.Value()),
+				targetResourceClasses: resClasses,
+			}
+		}
+		//fmt.Printf("\n%s n %p d %p \n", file_line(), n, n.devices[device.Name])
+		if rcMatchesResourcePropertySelectors(device, rcSpec.ResourceSelector) {
+			// Since device matches required properties/attribute mentioned in resourceclass, create a RCNodeInfo (item in list RC2Nodes)
+
+			fmt.Printf("\n %s about to update device2Resourceclass mapping, node %p\n", file_line(), n)
+			// Now update device2RC map for this Node
+			err = n.updateDeviceName2ResourceClassesMap(device.Name, int32(device.Units.Value()), rcInfo)
+			if err != nil {
+				glog.Errorf("ERROR: updateDeviceName2ResourceClassesMap, %v", err)
+				return nil, err
+			}
+			//	for k, v := range n.devices {
+			//		fmt.Printf("\n %v: %+v\n ", k, v)
+			//	}
+		} // go to next device
+	}
+	n.allocatableResource.AddScalar(rClass.Name, rcInfo.Allocatable)
+	return rcInfo, err
+}
+
+func (n *NodeInfo) updateDeviceName2ResourceClassesMap(deviceName string, units int32, rcInfo *ResourceClassInfo) error {
+	if info, ok := n.devices[deviceName]; ok {
+		if len(targetResourceClasses) == 0 {
+			info.targetResourceClasses[rcInfo.resClass.Name] = rcInfo
+			rcInfo.Allocatable += units
+			return nil
+		}
+		if rcInfo.resClass.Spec.Priority == info.priority {
+			info.targetResourceClasses[rcInfo.resClass.Name] = rcInfo
+			rcInfo.Allocatable += units
+			return nil
+		}
+		if rcInfo.resClass.Spec.Priority > info.priority {
+			resClasses := make(map[string]*ResourceClassInfo)
+			resClasses[rcInfo.resClass.Name] = rcInfo
+			info.targetResourceClasses = resClasses
+			info.priority = rcInfo.resClass.Spec.Priority
+			rcInfo.Allocatable += units
+			return nil
+		}
+		fmt.Printf("\n %s dinfo %p, dinfo.TaresClasses %+v \n", file_line(), info, info.targetResourceClasses)
+	} else {
+		panic(fmt.Sprintf("ANOMALY DETECTED!!! device %v, not found in scheduler cache.", deviceName))
+	}
+	return nil
+}
+
+func rcMatchesResourcePropertySelectors(device v1.Device, resSelectors []v1.ResourcePropertySelector) bool {
+	for _, req := range resSelectors {
+		fmt.Println(file_line(), req)
+		//TODO: Instead of using NodeSelector helper api, write and use resource class specific one.
+		resSelector, err := v1helper.ResourceSelectorRequirementsAsSelector(req.MatchExpressions)
+		fmt.Println(file_line(), resSelector)
+		if err != nil {
+			glog.Warningf("Failed to parse MatchExpressions: %+v, regarding as not match: %v", req.MatchExpressions, err)
+			return false
+		}
+		fmt.Println(file_line(), device.Labels)
+		if resSelector.Matches(labels.Set(device.Labels)) {
+			return true
+		}
+		fmt.Println(file_line(), "Returning False")
+	}
+	return false
+}
+
 // NewNodeInfo returns a ready to use empty NodeInfo object.
 // If any pods are given in arguments, their information will be aggregated in
 // the returned object.
@@ -262,6 +395,8 @@ func NewNodeInfo(pods ...*v1.Pod) *NodeInfo {
 		generation:          nextGeneration(),
 		usedPorts:           make(util.HostPortInfo),
 		imageSizes:          make(map[string]int64),
+		devices:             make(map[string]*DeviceInfo),
+		resClasses:          make(map[string]*ResourceClassInfo),
 	}
 	for _, pod := range pods {
 		ni.AddPod(pod)
@@ -275,6 +410,14 @@ func (n *NodeInfo) Node() *v1.Node {
 		return nil
 	}
 	return n.node
+}
+
+// ResClasses return all resource classes info on this node.
+func (n *NodeInfo) ResClasses() map[string]*ResourceClassInfo {
+	if n == nil {
+		return nil
+	}
+	return n.resClasses
 }
 
 // Pods return all pods scheduled (including assumed to be) on this node.
@@ -373,6 +516,14 @@ func (n *NodeInfo) AllocatableResource() Resource {
 	return *n.allocatableResource
 }
 
+// AllocatableDevice returns allocatable devices on a given node.
+func (n *NodeInfo) AllocatableDevices() map[string]*DeviceInfo {
+	if n == nil {
+		return make(map[string]*DeviceInfo)
+	}
+	return n.devices
+}
+
 // SetAllocatableResource sets the allocatableResource information of given node.
 func (n *NodeInfo) SetAllocatableResource(allocatableResource *Resource) {
 	n.allocatableResource = allocatableResource
@@ -394,6 +545,7 @@ func (n *NodeInfo) Clone() *NodeInfo {
 		usedPorts:               make(util.HostPortInfo),
 		imageSizes:              n.imageSizes,
 		generation:              n.generation,
+		devices:                 make(map[string]*DeviceInfo),
 	}
 	if len(n.pods) > 0 {
 		clone.pods = append([]*v1.Pod(nil), n.pods...)
@@ -401,6 +553,17 @@ func (n *NodeInfo) Clone() *NodeInfo {
 	if len(n.usedPorts) > 0 {
 		for k, v := range n.usedPorts {
 			clone.usedPorts[k] = v
+		}
+	}
+	fmt.Printf("%s cloning device and node info\n", file_line())
+	if len(n.devices) > 0 {
+		for k, v := range n.devices {
+			clone.devices[k] = v
+		}
+	}
+	if len(n.resClasses) > 0 {
+		for k, v := range n.resClasses {
+			clone.resClasses[k] = v
 		}
 	}
 	if len(n.podsWithAffinity) > 0 {
@@ -438,9 +601,229 @@ func hasPodAffinityConstraints(pod *v1.Pod) bool {
 	return affinity != nil && (affinity.PodAffinity != nil || affinity.PodAntiAffinity != nil)
 }
 
+func (n *NodeInfo) onAddUpdateDependentResClasses(dName string, quantityReq int32) (*map[string]int32, error) {
+	fmt.Printf("\n %s Entered \n", file_line())
+	device := n.devices[dName]
+	associatedClasses := make(map[string]int32)
+	var associatedDeviceInfo *DeviceInfo
+	var normalizedReq int32
+	for _, rcInfo := range device.targetResourceClasses {
+		rcInfo.Requested += quantityReq
+		associatedClasses[rcInfo.resClass.Name] = quantityReq
+		fmt.Printf("\n%s class %v, request %v \n", file_line(), rcInfo.resClass.Name, quantityReq)
+		n.RequestedResource.AddScalar(rcInfo.resClass.Name, int64(quantityReq))
+	}
+
+	return &associatedClasses, nil
+}
+
+func (n *NodeInfo) onRemoveUpdateDependentResClasses(dName string, quantityReq int32) (*map[string]int32, error) {
+	device := n.devices[dName]
+	associatedClasses := make(map[string]int32)
+	var associatedDeviceInfo *DeviceInfo
+	var normalizedReq int32
+	for _, rcInfo := range device.targetResourceClasses {
+		rcInfo.Requested -= quantityReq
+		associatedClasses[rcInfo.resClass.Name] = quantityReq
+		fmt.Printf("\n%s class %v, request %v \n", file_line(), rcInfo.resClass.Name, quantityReq)
+	}
+
+	// Update sub-devices and their dependent classes
+	if (device.subResName != "") && (device.subResQuantity != 0) {
+		associatedDeviceInfo = n.devices[device.subResName]
+		normalizedReq = (quantityReq * device.subResQuantity)
+		associatedDeviceInfo.requested -= normalizedReq
+		for _, rcInfo := range associatedDeviceInfo.targetResourceClasses {
+			rcInfo.Requested -= normalizedReq
+			associatedClasses[rcInfo.resClass.Name] = normalizedReq
+			fmt.Printf("\n%s class %v, request %v \n", file_line(), normalizedReq)
+		}
+	} else { // update device to which, this device is a subdevice
+		if associatedDeviceInfo, ok := n.devices[device.groupResourceName]; ok {
+			if (associatedDeviceInfo.remainderFromGroup + quantityReq) < associatedDeviceInfo.subResQuantity {
+				associatedDeviceInfo.remainderFromGroup += quantityReq
+			} else {
+				quantityReq += associatedDeviceInfo.remainderFromGroup
+				remainder := math.Mod(float64(quantityReq), float64(associatedDeviceInfo.subResQuantity))
+				normalizedReq = quantityReq / associatedDeviceInfo.subResQuantity
+				if remainder != 0 {
+					associatedDeviceInfo.remainderFromGroup = int32(remainder)
+				}
+				associatedDeviceInfo.requested -= normalizedReq
+				for _, rcInfo := range associatedDeviceInfo.targetResourceClasses {
+					rcInfo.Requested -= normalizedReq
+					associatedClasses[rcInfo.resClass.Name] = normalizedReq
+					fmt.Printf("\n%s class %v, request %v \n", file_line(), normalizedReq)
+				}
+			}
+
+		}
+	}
+	return &associatedClasses, nil
+}
+
+func (n *NodeInfo) patchResourceClassStatus(rClass *v1.ResourceClass, allocatable int32, requested int32) error {
+	fmt.Printf("\n %s Entered  class %v alloc %d req %d\n", file_line(), rClass.Name, allocatable, requested)
+	oldData, err := json.Marshal(rClass)
+	if err != nil {
+		return err
+	}
+	rClass.Status.Allocatable = allocatable
+	rClass.Status.Request = requested
+	newData, err := json.Marshal(rClass)
+	if err != nil {
+		return err
+	}
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, &v1.ResourceClass{})
+	if err != nil {
+		return err
+	}
+	updatedclass, err := n.kubeClient.Core().ResourceClasses().Patch(rClass.Name, types.StrategicMergePatchType, patchBytes, "status")
+	if err != nil {
+		fmt.Printf("\n %s ERROR: rc status patch , %v \n", file_line(), err)
+		glog.V(10).Infof("Failed to patch status for  %s: %v", rClass.Name, err)
+		return err
+	}
+	fmt.Printf("\n %s rc status patching done succesfullyi, updated %+v \n", file_line, updatedclass)
+	glog.V(10).Infof("Patched status for res class %s with +%v", rClass.Name, requested)
+	return nil
+}
+
+func updateAllocatedResources(container *v1.Container, devices []*ResourceClassDeviceAllocation) {
+	for _, device := range devices {
+		container.AllocatedComputeResources[device.deviceName] = v1.DeviceList{Count: device.deviceQuantity}
+	}
+}
+
+func (n *NodeInfo) patchPodWithAllocatedComputeResources(allContainersRes map[string][]*ResourceClassDeviceAllocation) error {
+	fmt.Printf("\n %s Entered \n", file_line())
+	oldData, err := json.Marshal(pod)
+	if err != nil {
+		return err
+	}
+	for containerName, deviceMappings := range allContainersRes {
+		for _, c := range pod.Spec.Containers {
+			if c.Name != containerName {
+				continue
+			}
+			updateAllocatedResources(c, deviceMappings)
+		}
+	}
+	newData, err := json.Marshal(pod)
+	if err != nil {
+		return err
+	}
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, &v1.Pod{})
+	if err != nil {
+		return err
+	}
+	_, err = n.kubeClient.Core().Pods(pod.Namespace).Patch(pod.Name, types.StrategicMergePatchType, patchBytes)
+	if err != nil {
+		glog.V(10).Infof("Failed to add device annotation for pod %s: %v", pod.Name, err)
+		return err
+	}
+	glog.V(10).Infof("Added device annotation %s for pod %s to %v", annotationKey, pod.Name, value)
+	return nil
+}
+
+func (n *NodeInfo) OnRemoveUpdateResClassToDeviceMappingForPod(pod *v1.Pod) (*map[string]int32, error) {
+	_, rClasses, _, _ := calculateResource(pod)
+	allDependentClasses := make(map[string]int32)
+	if len(rClasses) > 0 {
+		devices, _ := getDeviceNameQuantityFromPodAnnotations(pod)
+		for dName, quantity := range *devices {
+			dInfo, ok := n.devices[dName]
+			if ok {
+				dInfo.requested -= quantity
+				dependentClasses, err := n.onRemoveUpdateDependentResClasses(dName, quantity)
+				if err != nil {
+					return nil, err
+				}
+				for k, v := range *dependentClasses {
+					allDependentClasses[k] = v
+				}
+			}
+		}
+	}
+	return &allDependentClasses, nil
+}
+
+func (n *NodeInfo) OnAddUpdateResClassToDeviceMappingForPod(pod *v1.Pod) (map[string][]*ResourceClassDeviceAllocation, *map[string]int32, error) {
+	fmt.Printf("\n %s Entered node %p\n", file_line(), n)
+	allContainersMappings := make(map[string][]*ResourceClassDeviceAllocation)
+	allDependentClasses := make(map[string]int32)
+	allContainersRes, _, _ := calculateResource(pod)
+	for containerName, res := range allContainersRes {
+		allMappings := make([]*ResourceClassDeviceAllocation, 0)
+		if len(res.ScalarResources) > 0 {
+			for name, quantity := range res.ScalarResources {
+				quantity = int32(quantity)
+				allocationDone := false
+				mapping := &ResourceClassDeviceAllocation{}
+				currentRequest := quantity
+				for dName, dInfo := range n.devices {
+					var allocationFromthisDevice int32
+
+					if allocationDone {
+						// go to next scalar resource request
+						continue
+					}
+					fmt.Printf("\n %s dinfo %p(%+v), TaResCl %+v \n", file_line(), dInfo, *dInfo, dInfo.targetResourceClasses)
+					_, ok := dInfo.targetResourceClasses[name]
+					if !ok || dName != name {
+						continue
+					}
+					if dName == name { /*case where resource is requested by raw resource name*/
+						if (dInfo.requested + quantity) > dInfo.allocatable {
+							return nil, nil, fmt.Errorf("Requested a resource more than allocatable. It should have failed in predicates. resource %s, allocated %d, allocatable %v, now requested %d", dName, dInfo.requested, dInfo.allocatable, quantity)
+						}
+						mapping.rClassName = ""
+					} else {
+						mapping.rClassName = name
+					}
+					if (dInfo.requested + currentRequest) >= dInfo.allocatable { /*This device alone is not able to meet requested units of the resource class. So take all available from this device*/
+						allocationFromthisDevice = dInfo.allocatable - dInfo.requested
+						dInfo.requested = dInfo.allocatable
+						currentRequest = currentRequest - allocationFromthisDevice
+
+					} else {
+						allocationFromthisDevice = currentRequest
+						dInfo.requested = dInfo.requested + currentRequest
+						currentRequest = 0
+						allocationDone = true
+					}
+
+					//1. pick an appropriate device from the devices on this node
+					//2. after selecting device, update all other resource classes that might get impacted by this device's consumption.
+					dependentClasses, err := n.onAddUpdateDependentResClasses(dName, allocationFromthisDevice)
+					n.RequestedResource.AddScalar(dName, int64(allocationFromthisDevice))
+					if err == nil {
+						for k, v := range *dependentClasses {
+							allDependentClasses[k] = v
+						}
+						mapping.deviceName = dName
+						mapping.deviceQuantity = allocationFromthisDevice
+						allMappings = append(allMappings, mapping)
+						fmt.Printf("\n%s dinfo %v quantity %v\n", file_line(), *dInfo, quantity)
+					} else {
+						glog.Errorf("Error in syncing res classes, %v", err)
+					}
+				}
+				if !allocationDone {
+					glog.Errorf("Allocation failed. Resource info not found in cache. May be cache has not fully initialized yet.")
+					return nil, nil, errors.New("Allocation failed. Resource info not found in cache. May be cache has not fully initialized yet.")
+				}
+			}
+			allContainersMappings[containerName] = allMappings
+		} /*go to next container's requests*/
+	}
+	return allContainersMappings, &allDependentClasses, nil
+}
+
 // AddPod adds pod information to this NodeInfo.
 func (n *NodeInfo) AddPod(pod *v1.Pod) {
 	res, non0CPU, non0Mem := calculateResource(pod)
+	fmt.Printf("\n %s Entered node %p\n", file_line(), n)
 	n.requestedResource.MilliCPU += res.MilliCPU
 	n.requestedResource.Memory += res.Memory
 	n.requestedResource.EphemeralStorage += res.EphemeralStorage
@@ -461,6 +844,36 @@ func (n *NodeInfo) AddPod(pod *v1.Pod) {
 	n.updateUsedPorts(pod, true)
 
 	n.generation = nextGeneration()
+}
+
+func annotationKeyHasResClassPrefix(key string) bool {
+	return strings.HasPrefix(key, v1.ResClassPodAnnotationKeyPrefix)
+}
+
+func extractDeviceNameFromAnnotationKey(key string) string {
+	rclassDevice := strings.SplitAfter(key, v1.ResClassPodAnnotationKeyPrefix)[1]
+	splitted := strings.SplitAfter(rclassDevice, "_")
+	return splitted[len(splitted)-1]
+}
+
+func getDeviceNameQuantityFromPodAnnotations(pod *v1.Pod) (*map[string]int32, bool) {
+	devices := make(map[string]int32)
+	if pod.Annotations == nil {
+		return &devices, false
+	}
+	for k, v := range pod.Annotations {
+		if annotationKeyHasResClassPrefix(k) {
+			deviceName := extractDeviceNameFromAnnotationKey(k)
+			intValue, err := strconv.Atoi(v)
+			if err != nil {
+				glog.Warningf("Cannot convert the value %q with annotation key %q for the pod %q",
+					v, k, pod.Name)
+				return &devices, false
+			}
+			devices[deviceName] = int32(intValue)
+		}
+	}
+	return &devices, true
 }
 
 // RemovePod subtracts pod information from this NodeInfo.
@@ -519,10 +932,13 @@ func (n *NodeInfo) RemovePod(pod *v1.Pod) error {
 	return fmt.Errorf("no corresponding pod %s in pods of node %s", pod.Name, n.node.Name)
 }
 
-func calculateResource(pod *v1.Pod) (res Resource, non0CPU int64, non0Mem int64) {
-	resPtr := &res
+func calculateResource(pod *v1.Pod) (allContainersRes map[string]*Resource, non0CPU int64, non0Mem int64) {
+	allContainersRes := make(map[string]int64)
 	for _, c := range pod.Spec.Containers {
+		var res Resource
+		resPtr := &res
 		resPtr.Add(c.Resources.Requests)
+		allContainersRes[c.Name] = resPtr
 
 		non0CPUReq, non0MemReq := priorityutil.GetNonzeroRequests(&c.Resources.Requests)
 		non0CPU += non0CPUReq
@@ -559,10 +975,14 @@ func (n *NodeInfo) updateImageSizes() {
 }
 
 // SetNode sets the overall node information.
-func (n *NodeInfo) SetNode(node *v1.Node) error {
+func (n *NodeInfo) SetNode(node *v1.Node, pods ...*v1.Pod) error {
+	for _, pod := range pods {
+		n.AddPod(pod)
+	}
 	n.node = node
 
 	n.allocatableResource = NewResource(node.Status.Allocatable)
+	n.allocatableResource.AddComputeResources(node.Status.ComputeResourceAllocatable)
 
 	n.taints = node.Spec.Taints
 	for i := range node.Status.Conditions {

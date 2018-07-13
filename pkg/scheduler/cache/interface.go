@@ -20,6 +20,7 @@ import (
 	"k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 )
 
 // PodFilter is a function to filter a pod. If pod passed return true else return false.
@@ -91,6 +92,9 @@ type Cache interface {
 	// AddNode adds overall information about node.
 	AddNode(node *v1.Node) error
 
+	// AddResourceClass adds overall information about resource class.
+	AddResourceClass(rClass *v1.ResourceClass) error
+
 	// UpdateNode updates overall information about node.
 	UpdateNode(oldNode, newNode *v1.Node) error
 
@@ -125,6 +129,9 @@ type Cache interface {
 
 	// IsUpToDate returns true if the given NodeInfo matches the current data in the cache.
 	IsUpToDate(n *NodeInfo) bool
+
+	// AddClient adds api client
+	AddClient(client clientset.Interface) error
 }
 
 // Snapshot is a snapshot of cache state

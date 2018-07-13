@@ -591,14 +591,30 @@ func (kl *Kubelet) setNodeAddress(node *v1.Node) error {
 }
 
 func (kl *Kubelet) setNodeStatusMachineInfo(node *v1.Node) {
+	// Note(VikasC): This is a hack to populate device for ResourceClass PoC
+	if kl.experimentalDeviceFilePath != "" {
+		devicesP, err := nodeutil.ReadDeviceFiles(kl.experimentalDeviceFilePath)
+		if err != nil {
+			glog.Errorf("Error while reading device files: %v", err)
+		}
+		if len(devicesP) != 0 {
+			var devicesV []v1.Device
+			for _, d := range devicesP {
+				devicesV = append(devicesV, *d)
+			}
+			node.Status.CapacityDevices = devicesV
+			node.Status.AllocatableDevices = devicesV
+		}
+	}
+
 	// Note: avoid blindly overwriting the capacity in case opaque
 	//       resources are being advertised.
 	if node.Status.Capacity == nil {
 		node.Status.Capacity = v1.ResourceList{}
 	}
 
-	var devicePluginAllocatable v1.ResourceList
-	var devicePluginCapacity v1.ResourceList
+	var devicePluginAllocatable []v1.ComputeResource
+	var devicePluginCapacity []v1.ComputeResource
 	var removedDevicePlugins []string
 
 	// TODO: Post NotReady if we cannot get MachineInfo from cAdvisor. This needs to start
@@ -645,13 +661,20 @@ func (kl *Kubelet) setNodeStatusMachineInfo(node *v1.Node) {
 			}
 		}
 
-		devicePluginCapacity, devicePluginAllocatable, removedDevicePlugins = kl.containerManager.GetDevicePluginResourceCapacity()
+		devicePluginCapacity, devicePluginAllocatable, removedResource = kl.containerManager.GetDevicePluginResourceCapacity()
 		if devicePluginCapacity != nil {
-			for k, v := range devicePluginCapacity {
-				if old, ok := node.Status.Capacity[k]; !ok || old.Value() != v.Value() {
-					glog.V(2).Infof("Update capacity for %s to %d", k, v.Value())
+			for _, cr := range devicePluginCapacity {
+				//if old, ok := node.Status.Capacity[k]; !ok || old.Value() != v.Value() {
+				//	glog.V(2).Infof("Update capacity for %s to %d", k, v.Value())
+				//}
+				//node.Status.Capacity[k] = v
+				for i, existingRes := range node.Status.ComputeResourceCapacity {
+					if existingRes.ResourceName == cr.ResourceName {
+						node.Status.ComputeResourceCapacity = append(node.Status.ComputeResourceCapacity[:i], node.Status.ComputeResourceCapacity[i+1:]...)
+						continue
+					}
 				}
-				node.Status.Capacity[k] = v
+				node.Status.ComputeResourceCapacity = append(node.Status.ComputeResourceCapacity, cr)
 			}
 		}
 
@@ -665,7 +688,13 @@ func (kl *Kubelet) setNodeStatusMachineInfo(node *v1.Node) {
 			// This is required to differentiate the device plugin managed
 			// resources and the cluster-level resources, which are absent in
 			// node status.
-			node.Status.Capacity[v1.ResourceName(removedResource)] = *resource.NewQuantity(int64(0), resource.DecimalSI)
+			//	node.Status.Capacity[v1.ResourceName(removedResource)] = *resource.NewQuantity(int64(0), resource.DecimalSI)
+			for _, existingRes := range node.Status.ComputeResourceCapacity {
+				if existingRes.ResourceName == removedResource {
+					existingRes.Units = 0
+					existingRes.Devices = nil
+				}
+			}
 		}
 	}
 
@@ -695,11 +724,18 @@ func (kl *Kubelet) setNodeStatusMachineInfo(node *v1.Node) {
 	}
 
 	if devicePluginAllocatable != nil {
-		for k, v := range devicePluginAllocatable {
-			if old, ok := node.Status.Allocatable[k]; !ok || old.Value() != v.Value() {
-				glog.V(2).Infof("Update allocatable for %s to %d", k, v.Value())
+		for _, cr := range devicePluginAllocatable {
+			//if old, ok := node.Status.Allocatable[k]; !ok || old.Value() != v.Value() {
+			//	glog.V(2).Infof("Update allocatable for %s to %d", k, v.Value())
+			//	}
+			//node.Status.Allocatable[k] = v
+			for i, existingRes := range node.Status.ComputeResourceAllocatable {
+				if existingRes.ResourceName == cr.ResourceName {
+					node.Status.ComputeResourceAllocatable = append(node.Status.ComputeResourceAllocatable[:i], node.Status.ComputeResourceAllocatable[i+1:]...)
+					continue
+				}
 			}
-			node.Status.Allocatable[k] = v
+			node.Status.ComputeResourceAllocatable = append(node.Status.ComputeResourceAllocatable, cr)
 		}
 	}
 	// for every huge page reservation, we need to remove it from allocatable memory

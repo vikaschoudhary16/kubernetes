@@ -866,6 +866,6 @@ func (cm *containerManagerImpl) GetCapacity() v1.ResourceList {
 	return cm.capacity
 }
 
-func (cm *containerManagerImpl) GetDevicePluginResourceCapacity() (v1.ResourceList, v1.ResourceList, []string) {
+func (cm *containerManagerImpl) GetDevicePluginResourceCapacity() ([]v1.ComputeResource, []v1.ComputeResource, []string) {
 	return cm.deviceManager.GetCapacity()
 }

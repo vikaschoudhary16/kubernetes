@@ -29,6 +29,11 @@ message DevicePluginOptions {
 	bool pre_start_required = 1;
 }
 
+message DeviceAttributes {
+        // Attributes of the devices. eg: {"version": "1.0"}
+        map<string, string> attributes = 1;
+}
+
 message RegisterRequest {
 	// Version of the API the Device Plugin was built against
 	string version = 1;
@@ -49,6 +54,9 @@ service DevicePlugin {
 	// GetDevicePluginOptions returns options to be communicated with Device
         // Manager
 	rpc GetDevicePluginOptions(Empty) returns (DevicePluginOptions) {}
+
+	// GetDeviceAttributes returns attributes  to be communicated with Device Manager
+	rpc GetDeviceAttributes(Empty) returns (DeviceAttributes) {}
 
 	// ListAndWatch returns a stream of List of Devices
 	// Whenever a Device state change or a Device disapears, ListAndWatch
@@ -85,6 +93,8 @@ message Device {
 	string ID = 1;
 	// Health of the device, can be healthy or unhealthy, see constants.go
 	string health = 2;
+        // Attributes of the device. eg: {"version": "1.0"}
+        map<string, string> attributes = 3;
 }
 
 // - PreStartContainer is expected to be called before each container start if indicated by plugin during registration phase.

@@ -7,18 +7,8 @@ load(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "api.pb.go",
-        "constants.go",
-    ],
+    srcs = ["constants.go"],
     importpath = "k8s.io/kubernetes/pkg/kubelet/apis/deviceplugin/v1alpha",
-    deps = [
-        "//vendor/github.com/gogo/protobuf/gogoproto:go_default_library",
-        "//vendor/github.com/gogo/protobuf/proto:go_default_library",
-        "//vendor/github.com/gogo/protobuf/sortkeys:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
-        "//vendor/google.golang.org/grpc:go_default_library",
-    ],
 )
 
 filegroup(

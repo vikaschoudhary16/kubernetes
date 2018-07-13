@@ -1994,6 +1994,14 @@ const (
 	TerminationMessagePathDefault string = "/dev/termination-log"
 )
 
+// List of devices
+type DeviceList struct {
+	// +optional
+	Count int32 `json:"count,omitempty" protobuf:"varint,1,opt,name=count"`
+	// +optional
+	UIDs []types.UID `json:"uids, omitempty" protobuf:"bytes,2,rep,name=uids"`
+}
+
 // A single application container that you want to run within a pod.
 type Container struct {
 	// Name of the container specified as a DNS_LABEL.
@@ -2142,6 +2150,10 @@ type Container struct {
 	// Default is false.
 	// +optional
 	TTY bool `json:"tty,omitempty" protobuf:"varint,18,opt,name=tty"`
+	// Compute resources which are resolved and recorded by the scheduler along with count. Actual device ids will be
+	// allocated by kubelet
+	// +optional
+	AllocatedComputeResources map[string]DeviceList `json:"allocatedComputeResources,omitempty" protobuf:"bytes,21,rep,name=allocatedComputeResources"`
 }
 
 // Handler defines a specific action that should be taken
@@ -3948,6 +3960,24 @@ type NodeStatus struct {
 	// Status of the config assigned to the node via the dynamic Kubelet config feature.
 	// +optional
 	Config *NodeConfigStatus `json:"config,omitempty" protobuf:"bytes,11,opt,name=config"`
+	// List of extended resources
+	// +optional
+	ComputeResourceCapacity []ComputeResource `json:"computeResourceCapacity,omitempty" protobuf:"bytes,12,rep,name=computeResourceCapacity"`
+	// List of extended resources
+	// +optional
+	ComputeResourceAllocatable []ComputeResource `json:"computeResourceAllocatable,omitempty" protobuf:"bytes,12,rep,name=computeResourceAllocatable"`
+}
+
+type ComputeResource struct {
+	// raw resource name. E.g.: nvidia.com/gpu
+	Name string `json:"name" protobuf:"bytes,1,rep,name=name"`
+	// resource metadata received from device plugin.
+	// e.g., gpuType: k80, zone: us-west1-b
+	Properties map[string]string `json:"properties,omitempty" protobuf:"bytes,2,rep,name=properties"`
+	// list of deviceIds received from device plugin.
+	// e.g., ["nvida0", "nvidia1"]
+	Devices []string          `json:"devices" protobuf:"bytes,3,rep,name=devices"`
+	Units   resource.Quantity `json:"units,omitempty" protobuf:"bytes,4,name=units"`
 }
 
 type UniqueVolumeName string
